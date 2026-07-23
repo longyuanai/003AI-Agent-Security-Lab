@@ -34,6 +34,13 @@ from ai_agent_lab.multi_agent import (
     run_offline_mcp_abuse_demo,
 )
 from ai_agent_lab.reporter import render_markdown
+from ai_agent_lab.report import (
+    CrossScenarioReport,
+    TargetCorrelation,
+    build_correlation_report,
+    build_demo_correlation_report,
+    render_correlation_markdown,
+)
 from ai_agent_lab.runner import Runner, run_scenario
 from ai_agent_lab.sandbox import (
     Sandbox,
@@ -57,6 +64,8 @@ __all__ = [
     "MetricRecord",
     "MCPAbuseRun",
     "RateSummary",
+    "CrossScenarioReport",
+    "TargetCorrelation",
     "RunResult",
     "Runner",
     "Sandbox",
@@ -73,12 +82,15 @@ __all__ = [
     "built_in_scenarios",
     "built_in_targets",
     "build_mcp_abuse_mission",
+    "build_correlation_report",
+    "build_demo_correlation_report",
     "build_scenario_registry",
     "evaluate_asr",
     "evaluate_demo_scenarios",
     "get_target",
     "render_markdown",
     "render_asr_markdown",
+    "render_correlation_markdown",
     "run_scenario",
     "run_mcp_abuse",
     "run_offline_mcp_abuse_demo",

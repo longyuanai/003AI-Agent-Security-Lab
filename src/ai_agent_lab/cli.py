@@ -19,6 +19,10 @@ from ai_agent_lab import __version__
 from ai_agent_lab.attacks import built_in_scenarios, get_scenario
 from ai_agent_lab.metrics import evaluate_asr, write_asr_reports
 from ai_agent_lab.multi_agent import run_offline_mcp_abuse_demo
+from ai_agent_lab.report import (
+    build_demo_correlation_report,
+    write_correlation_markdown,
+)
 from ai_agent_lab.runner import run_demo, run_scenario
 from ai_agent_lab.sandbox import Sandbox, SandboxError, SandboxPolicy
 from ai_agent_lab.scenarios import evaluate_demo_scenarios
@@ -233,6 +237,25 @@ def v05_scenarios_cmd() -> None:
             f"  [red]{finding.severity.value.upper()}[/red] "
             f"{finding.metadata['scenario']}: {finding.title}"
         )
+
+
+@cli.command("correlation-report")
+@click.option(
+    "--output",
+    "-o",
+    default="v05-correlation-report.md",
+    show_default=True,
+    type=click.Path(),
+)
+def correlation_report_cmd(output: str) -> None:
+    """Write the v0.5 cross-scenario Finding correlation report."""
+    report = build_demo_correlation_report()
+    path = write_correlation_markdown(report, output)
+    console.print(
+        f"[bold]Findings:[/bold] {len(report.findings)}  "
+        f"[bold]Correlated targets:[/bold] {len(report.correlations)}"
+    )
+    console.print(f"[green]Wrote[/green] {path}")
 
 
 def main() -> None:
