@@ -21,6 +21,7 @@ from ai_agent_lab.metrics import evaluate_asr, write_asr_reports
 from ai_agent_lab.multi_agent import run_offline_mcp_abuse_demo
 from ai_agent_lab.runner import run_demo, run_scenario
 from ai_agent_lab.sandbox import Sandbox, SandboxError, SandboxPolicy
+from ai_agent_lab.scenarios import evaluate_demo_scenarios
 from ai_agent_lab.target import built_in_targets
 
 console = Console()
@@ -220,6 +221,18 @@ def multi_agent_demo_cmd() -> None:
             f"latency_ms={result.latency_ms}: {detail}"
         )
     console.print(f"[green]{run.verdict}[/green]")
+
+
+@cli.command("v05-scenarios")
+def v05_scenarios_cmd() -> None:
+    """Evaluate the five v0.5 RuleEngine demo scenarios."""
+    findings = evaluate_demo_scenarios()
+    console.print(f"[bold]v0.5 findings:[/bold] {len(findings)}")
+    for finding in findings:
+        console.print(
+            f"  [red]{finding.severity.value.upper()}[/red] "
+            f"{finding.metadata['scenario']}: {finding.title}"
+        )
 
 
 def main() -> None:

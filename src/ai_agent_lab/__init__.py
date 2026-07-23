@@ -43,6 +43,7 @@ from ai_agent_lab.sandbox import (
     SandboxTimeout,
     SandboxViolation,
 )
+from ai_agent_lab.scenarios import build_scenario_registry, evaluate_demo_scenarios
 from ai_agent_lab.target import TargetAgent, built_in_targets, get_target
 
 __version__ = "0.1.0"
@@ -72,7 +73,9 @@ __all__ = [
     "built_in_scenarios",
     "built_in_targets",
     "build_mcp_abuse_mission",
+    "build_scenario_registry",
     "evaluate_asr",
+    "evaluate_demo_scenarios",
     "get_target",
     "render_markdown",
     "render_asr_markdown",
