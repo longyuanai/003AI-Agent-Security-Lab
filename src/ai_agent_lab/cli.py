@@ -17,6 +17,7 @@ from rich.console import Console
 
 from ai_agent_lab import __version__
 from ai_agent_lab.attacks import built_in_scenarios, get_scenario
+from ai_agent_lab.metrics import evaluate_asr, write_asr_reports
 from ai_agent_lab.runner import run_demo, run_scenario
 from ai_agent_lab.sandbox import Sandbox, SandboxError, SandboxPolicy
 from ai_agent_lab.target import built_in_targets
@@ -169,6 +170,41 @@ def sandbox_cmd(code: str, timeout: float, allow_network: bool) -> None:
             f"sandboxed Python exited with code {result.returncode}"
         )
     console.print(f"[green]Sandbox OK[/green] latency_ms={result.latency_ms}")
+
+
+@cli.command("metrics")
+@click.option(
+    "--markdown",
+    "markdown_path",
+    default="asr-report.md",
+    show_default=True,
+    type=click.Path(),
+    help="Markdown ASR report path.",
+)
+@click.option(
+    "--json",
+    "json_path",
+    default="asr-report.json",
+    show_default=True,
+    type=click.Path(),
+    help="JSON ASR report path.",
+)
+def metrics_cmd(markdown_path: str, json_path: str) -> None:
+    """Evaluate all 5 Agent × 10 Attack combinations."""
+    report = evaluate_asr()
+    md_path, js_path = write_asr_reports(
+        report,
+        markdown_path=markdown_path,
+        json_path=json_path,
+    )
+    summary = report.summary
+    console.print(
+        f"[bold]Combinations:[/bold] {summary.total}  "
+        f"[bold]Successful:[/bold] {summary.successes}  "
+        f"[bold]ASR:[/bold] {summary.asr:.1%}"
+    )
+    console.print(f"[green]Wrote[/green] {md_path}")
+    console.print(f"[green]Wrote[/green] {js_path}")
 
 
 def main() -> None:

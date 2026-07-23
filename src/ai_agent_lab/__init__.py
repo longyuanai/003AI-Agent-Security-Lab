@@ -19,6 +19,14 @@ from ai_agent_lab.datatypes import (
     Verdict,
 )
 from ai_agent_lab.detector import Detector, HeuristicDetector, LLMDetector
+from ai_agent_lab.metrics import (
+    ASRReport,
+    MetricRecord,
+    RateSummary,
+    evaluate_asr,
+    render_asr_markdown,
+    write_asr_reports,
+)
 from ai_agent_lab.reporter import render_markdown
 from ai_agent_lab.runner import Runner, run_scenario
 from ai_agent_lab.sandbox import (
@@ -38,6 +46,9 @@ __all__ = [
     "Detector",
     "HeuristicDetector",
     "LLMDetector",
+    "ASRReport",
+    "MetricRecord",
+    "RateSummary",
     "RunResult",
     "Runner",
     "Sandbox",
@@ -53,8 +64,11 @@ __all__ = [
     "Verdict",
     "built_in_scenarios",
     "built_in_targets",
+    "evaluate_asr",
     "get_target",
     "render_markdown",
+    "render_asr_markdown",
     "run_scenario",
+    "write_asr_reports",
     "__version__",
 ]
