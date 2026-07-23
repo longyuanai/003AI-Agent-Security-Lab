@@ -18,6 +18,7 @@ from rich.console import Console
 from ai_agent_lab import __version__
 from ai_agent_lab.attacks import built_in_scenarios, get_scenario
 from ai_agent_lab.runner import run_demo, run_scenario
+from ai_agent_lab.sandbox import Sandbox, SandboxError, SandboxPolicy
 from ai_agent_lab.target import built_in_targets
 
 console = Console()
@@ -133,6 +134,41 @@ def targets_cmd() -> None:
             f"tools={','.join(target.available_tools)}"
         )
         console.print(f"      {target.description}")
+
+
+@cli.command("sandbox")
+@click.option("--code", required=True, help="Python code to execute in the sandbox.")
+@click.option(
+    "--timeout",
+    type=click.FloatRange(min=0.01),
+    default=2.0,
+    show_default=True,
+    help="Hard timeout in seconds.",
+)
+@click.option(
+    "--allow-network",
+    is_flag=True,
+    help="Allow socket creation (disabled by default).",
+)
+def sandbox_cmd(code: str, timeout: float, allow_network: bool) -> None:
+    """Execute a Python snippet in the local PoC subprocess sandbox."""
+    sandbox = Sandbox(
+        SandboxPolicy(timeout_s=timeout, allow_network=allow_network)
+    )
+    try:
+        result = sandbox.run_python(code)
+    except SandboxError as exc:
+        raise click.ClickException(str(exc)) from exc
+
+    if result.stdout:
+        console.print(result.stdout, end="")
+    if result.stderr:
+        console.print(result.stderr, style="red", end="")
+    if not result.succeeded:
+        raise click.ClickException(
+            f"sandboxed Python exited with code {result.returncode}"
+        )
+    console.print(f"[green]Sandbox OK[/green] latency_ms={result.latency_ms}")
 
 
 def main() -> None:

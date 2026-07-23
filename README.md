@@ -89,3 +89,17 @@ pytest -v
 ```
 
 All tests use a stub router; no live LLM is required.
+
+## Local subprocess sandbox
+
+The SAND-001 PoC runs generated Python in a fresh `sandbox_*` subprocess
+directory with an environment allowlist, guarded writes, optional socket
+blocking, and a hard timeout:
+
+```bash
+python -m ai_agent_lab.cli sandbox --code "print('sandbox-ok')" --timeout 2
+```
+
+This is deterministic application-level isolation for the lab. On Windows,
+timeout handling kills the direct subprocess; it is not a kernel security
+boundary or a replacement for the Docker/gVisor design in the technical spec.

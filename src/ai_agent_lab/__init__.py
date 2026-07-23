@@ -21,6 +21,14 @@ from ai_agent_lab.datatypes import (
 from ai_agent_lab.detector import Detector, HeuristicDetector, LLMDetector
 from ai_agent_lab.reporter import render_markdown
 from ai_agent_lab.runner import Runner, run_scenario
+from ai_agent_lab.sandbox import (
+    Sandbox,
+    SandboxError,
+    SandboxPolicy,
+    SandboxResult,
+    SandboxTimeout,
+    SandboxViolation,
+)
 from ai_agent_lab.target import TargetAgent, built_in_targets, get_target
 
 __version__ = "0.1.0"
@@ -32,6 +40,12 @@ __all__ = [
     "LLMDetector",
     "RunResult",
     "Runner",
+    "Sandbox",
+    "SandboxError",
+    "SandboxPolicy",
+    "SandboxResult",
+    "SandboxTimeout",
+    "SandboxViolation",
     "Scenario",
     "TargetAgent",
     "ToolCall",

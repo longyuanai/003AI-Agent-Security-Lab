@@ -12,7 +12,7 @@
 |----|------|------|-------|-------|------|
 | SCEN-001 | 内置脆弱 Agent 扩到 5 个 (SQLi、邮件、文件 RAG、Web 浏览器、Code-Act) | done | 2026-07-24 | 2026-07-24 | 5 profiles + CLI |
 | ATTACK-001 | 攻击场景扩到 10 类 (加间接注入、token 窃取、shell escape 等) | done | 2026-07-24 | 2026-07-24 | 10 detector-backed classes |
-| SAND-001 | 沙箱化 (Docker 隔离 + syscall 白名单) | pending | | | |
+| SAND-001 | 沙箱化 (Docker 隔离 + syscall 白名单) | done | 2026-07-24 | 2026-07-24 | stdlib subprocess guard |
 | METRIC-001 | ASR (Attack Success Rate) 评估报告 | pending | | | |
 
 ---
