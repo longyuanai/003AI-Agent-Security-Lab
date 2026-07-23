@@ -18,6 +18,7 @@ from rich.console import Console
 from ai_agent_lab import __version__
 from ai_agent_lab.attacks import built_in_scenarios, get_scenario
 from ai_agent_lab.metrics import evaluate_asr, write_asr_reports
+from ai_agent_lab.multi_agent import run_offline_mcp_abuse_demo
 from ai_agent_lab.runner import run_demo, run_scenario
 from ai_agent_lab.sandbox import Sandbox, SandboxError, SandboxPolicy
 from ai_agent_lab.target import built_in_targets
@@ -205,6 +206,20 @@ def metrics_cmd(markdown_path: str, json_path: str) -> None:
     )
     console.print(f"[green]Wrote[/green] {md_path}")
     console.print(f"[green]Wrote[/green] {js_path}")
+
+
+@cli.command("multi-agent-demo")
+def multi_agent_demo_cmd() -> None:
+    """Run the offline SCOUT→ANALYST→EXPLOITER→REVIEWER MCP exercise."""
+    run = run_offline_mcp_abuse_demo()
+    for result in run.results:
+        state = "ERROR" if result.error else "OK"
+        detail = result.error or result.output
+        console.print(
+            f"[bold]{result.role.value.upper()}[/bold] {state} "
+            f"latency_ms={result.latency_ms}: {detail}"
+        )
+    console.print(f"[green]{run.verdict}[/green]")
 
 
 def main() -> None:

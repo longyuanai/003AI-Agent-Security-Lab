@@ -27,6 +27,12 @@ from ai_agent_lab.metrics import (
     render_asr_markdown,
     write_asr_reports,
 )
+from ai_agent_lab.multi_agent import (
+    MCPAbuseRun,
+    build_mcp_abuse_mission,
+    run_mcp_abuse,
+    run_offline_mcp_abuse_demo,
+)
 from ai_agent_lab.reporter import render_markdown
 from ai_agent_lab.runner import Runner, run_scenario
 from ai_agent_lab.sandbox import (
@@ -48,6 +54,7 @@ __all__ = [
     "LLMDetector",
     "ASRReport",
     "MetricRecord",
+    "MCPAbuseRun",
     "RateSummary",
     "RunResult",
     "Runner",
@@ -64,11 +71,14 @@ __all__ = [
     "Verdict",
     "built_in_scenarios",
     "built_in_targets",
+    "build_mcp_abuse_mission",
     "evaluate_asr",
     "get_target",
     "render_markdown",
     "render_asr_markdown",
     "run_scenario",
+    "run_mcp_abuse",
+    "run_offline_mcp_abuse_demo",
     "write_asr_reports",
     "__version__",
 ]
