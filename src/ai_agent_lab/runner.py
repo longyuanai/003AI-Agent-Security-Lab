@@ -53,7 +53,7 @@ def run_scenario(
 
 
 def run_demo(router: object | None = None) -> list[RunResult]:
-    """Run the built-in v0.1 PoC scenario set (3 attacks)."""
+    """Run the built-in v0.1 scenario set (10 attack classes)."""
     detector = Detector(heuristic=HeuristicDetector(), llm=LLMDetector(router=router))
     runner = Runner(detector=detector)
     return runner.run_all(built_in_scenarios())

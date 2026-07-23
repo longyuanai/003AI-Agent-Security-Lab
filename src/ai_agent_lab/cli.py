@@ -76,7 +76,7 @@ def run(scenario: str, output: str, provider: str, json_out: bool) -> None:
 
     if scenario == "demo":
         results = run_demo(router=router)
-        scenario_set = "demo (3 built-in)"
+        scenario_set = f"demo ({len(results)} built-in)"
     else:
         s = get_scenario(scenario)
         results = [run_scenario(s, router=router)]
@@ -117,6 +117,7 @@ def list_cmd() -> None:
     for s in built_in_scenarios():
         console.print(
             f"  - [cyan]{s.name}[/cyan]  ({s.category})  "
+            f"detectors={','.join(s.detector_modes)}  "
             f"expected={s.expected_detection.value}"
         )
         console.print(f"      {s.description}")

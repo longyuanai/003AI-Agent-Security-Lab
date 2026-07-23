@@ -9,15 +9,15 @@ from ai_agent_lab.runner import Runner, run_demo, run_scenario
 from ai_agent_lab.target import TargetAgent
 
 
-def test_runner_default_heuristic_detects_all_three():
-    """Without an LLM, the heuristic alone must catch all 3 PoC attacks."""
+def test_runner_default_heuristic_detects_all_ten():
+    """Without an LLM, the heuristic alone must catch all 10 attacks."""
     runner = Runner()  # heuristic only by default
     results = runner.run_all(built_in_scenarios())
-    assert len(results) == 3
+    assert len(results) == 10
     assert all(r.detected for r in results), [r.scenario_name for r in results]
 
 
-def test_runner_with_llm_detects_all_three(stub_router):
+def test_runner_with_llm_detects_all_ten(stub_router):
     router = stub_router({
         "verdict": "malicious",
         "category": "tool_misuse",
@@ -50,9 +50,9 @@ def test_runner_returns_runresult_fields():
     assert r.expected_detection in (Verdict.SUSPICIOUS, Verdict.MALICIOUS)
 
 
-def test_run_demo_returns_three_results():
+def test_run_demo_returns_ten_results():
     results = run_demo(router=None)
-    assert len(results) == 3
+    assert len(results) == 10
 
 
 def test_run_scenario_convenience():
@@ -62,10 +62,10 @@ def test_run_scenario_convenience():
 
 
 def test_runner_per_scenario_categories():
-    """All three categories should appear in the demo run."""
+    """All ten attack categories should appear in the demo run."""
     results = run_demo(router=None)
     cats = {r.category for r in results}
-    assert cats == {"prompt_injection", "tool_misuse", "data_exfiltration"}
+    assert len(cats) == 10
 
 
 def test_runner_evidence_populated():

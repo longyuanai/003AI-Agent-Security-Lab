@@ -1,8 +1,8 @@
 """AI-Agent-Security-Lab: vulnerable target agents + attack scenarios + detection.
 
 PoC scope (v0.1 happy path):
-  - 1 built-in vulnerable target agent with 3 tools (read_file, http_fetch, exec_shell)
-  - 3 attack scenarios (prompt injection, tool misuse, data exfiltration)
+  - 5 built-in vulnerable target agent profiles
+  - 10 attack classes with deterministic detector coverage
   - Heuristic + LLM detectors
   - Markdown reporter
   - Click CLI

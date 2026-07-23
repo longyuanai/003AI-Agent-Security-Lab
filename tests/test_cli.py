@@ -28,9 +28,10 @@ def test_cli_list_shows_scenarios():
     runner = CliRunner()
     res = runner.invoke(cli, ["list"])
     assert res.exit_code == 0
-    assert "pi-read-passwd" in res.output
+    assert "indirect-web-injection" in res.output
+    assert "email-exfil-forward" in res.output
+    assert "code-act-privilege" in res.output
     assert "tool-misuse-rm-rf" in res.output
-    assert "data-exfil-passwd" in res.output
 
 
 def test_cli_targets_lists_five_vulnerable_agents():
@@ -55,10 +56,13 @@ def test_cli_run_demo_writes_report(tmp_path: Path):
     assert out.exists()
     body = out.read_text(encoding="utf-8")
     assert "AI Agent Security Lab Report" in body
-    assert "pi-read-passwd" in body
-    assert "data-exfil-passwd" in body
+    assert "email-exfil-forward" in body
+    assert "code-act-privilege" in body
     assert "tool-misuse-rm-rf" in body
-    assert "Attacks detected: **3 / 3**" in body
+    assert "indirect-web-injection" in body
+    assert "token-theft-canary" in body
+    assert "shell-escape-sh-c" in body
+    assert "Attacks detected: **10 / 10**" in body
 
 
 def test_cli_run_unknown_scenario_fails(tmp_path: Path):
@@ -74,9 +78,9 @@ def test_cli_run_single_scenario(tmp_path: Path):
     runner = CliRunner()
     out = tmp_path / "report.md"
     res = runner.invoke(
-        cli, ["run", "--scenario", "pi-read-passwd", "--output", str(out)]
+        cli, ["run", "--scenario", "indirect-web-injection", "--output", str(out)]
     )
     assert res.exit_code == 0, res.output
     body = out.read_text(encoding="utf-8")
-    assert "pi-read-passwd" in body
+    assert "indirect-web-injection" in body
     assert "tool-misuse-rm-rf" not in body  # single scenario, others absent

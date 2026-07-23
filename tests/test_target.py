@@ -73,8 +73,8 @@ def test_target_scenario_metadata_propagates():
     assert tr.category == "prompt_injection"
 
 
-def test_target_handles_all_three_builtin_scenarios():
-    """Each PoC scenario should produce a non-empty tool call from the agent."""
+def test_target_handles_all_builtin_scenarios():
+    """Each built-in attack should produce a non-empty deterministic tool call."""
     t = TargetAgent()
     for s in built_in_scenarios():
         tr = t.run(s.payload, scenario_name=s.name, category=s.category)
