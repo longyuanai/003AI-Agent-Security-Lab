@@ -8,6 +8,7 @@ run the heuristic detector so the demo always works offline.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import sys
 from pathlib import Path
@@ -19,7 +20,7 @@ from ai_agent_lab import __version__
 from ai_agent_lab.attacks import built_in_scenarios, get_scenario
 from ai_agent_lab.metrics import evaluate_asr, write_asr_reports
 from ai_agent_lab.multi_agent import run_offline_mcp_abuse_demo
-from ai_agent_lab.orchestrator import build_llm_runtime
+from ai_agent_lab.orchestrator import LabMission, build_llm_runtime
 from ai_agent_lab.report import (
     build_demo_correlation_report,
     write_correlation_markdown,
@@ -69,13 +70,66 @@ def scan_cmd(input_payload: str | None, json_output: bool) -> None:
         heuristic=HeuristicDetector(),
         llm=LLMDetector(router=runtime.router),
     )
-    envelope = scan_payload(payload, detector=detector)
+    mission_results = []
+    errors: list[str] = []
+    if _is_indirect_mission_payload(payload):
+        mission_results = asyncio.run(
+            LabMission(runtime.router).run_indirect_injection(
+                str(payload["agent"]),
+                int(payload.get("iterations", 1)),
+            )
+        )
+        errors.extend(
+            result.error for result in mission_results if result.error is not None
+        )
+
+    try:
+        envelope = scan_payload(payload, detector=detector)
+    except Exception as exc:  # noqa: BLE001 - keep the adapter envelope valid
+        errors.append(f"{type(exc).__name__}: {exc}")
+        envelope = scan_payload(payload, detector=Detector())
+
+    for result in mission_results:
+        envelope["findings"].extend(
+            finding.to_dict() for finding in result.findings
+        )
     for finding in envelope["findings"]:
         finding["metadata"]["llm_provider"] = runtime.provider
+        if mission_results:
+            finding["metadata"]["mission_roles"] = [
+                result.role.value for result in mission_results
+            ]
         if runtime.fallback_reason:
             finding["metadata"]["llm_fallback_reason"] = runtime.fallback_reason
+    envelope["errors"] = errors
     indent = None if json_output else 2
     click.echo(json.dumps(envelope, ensure_ascii=False, indent=indent))
+
+
+def _is_indirect_mission_payload(payload: dict[str, object]) -> bool:
+    attack = str(payload.get("attack", "")).strip().lower()
+    agent = str(payload.get("agent", "")).strip().lower()
+    try:
+        iterations = int(payload.get("iterations", 1))
+    except (TypeError, ValueError):
+        return False
+    return (
+        attack
+        in {
+            "indirect_inj",
+            "indirect_injection",
+            "indirect_prompt_injection",
+        }
+        and agent
+        in {
+            "sql_assistant",
+            "email_assistant",
+            "file_rag",
+            "web_browser",
+            "code_act",
+        }
+        and 1 <= iterations <= 100
+    )
 
 
 def _build_router_or_none(provider: str) -> object | None:

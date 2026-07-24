@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 
 from click.testing import CliRunner
+from shared_llm_core.multi_agent import AgentResult, AgentRole
 
 from ai_agent_lab.cli import cli
 
@@ -41,6 +42,14 @@ def test_scan_runs_attack_returns_finding() -> None:
     assert finding["confidence"] == 0.88
     assert finding["title"] == "SQL injection via indirect prompt injection"
     assert finding["narrative"].endswith("ASR=1/1")
+    assert finding["metadata"]["mission_roles"] == [
+        "scout",
+        "analyst",
+        "exploiter",
+        "synthesizer",
+        "reviewer",
+    ]
+    assert envelope["errors"] == []
 
 
 def test_scan_handles_blocked_attack_gracefully() -> None:
@@ -73,7 +82,7 @@ def test_scan_invalid_attack_returns_empty_findings() -> None:
     )
 
     assert result.exit_code == 0, result.output
-    assert json.loads(result.output) == {"findings": []}
+    assert json.loads(result.output) == {"findings": [], "errors": []}
 
 
 def test_scan_reads_payload_from_stdin() -> None:
@@ -117,3 +126,57 @@ def test_json_subprocess_lab_adapter_end_to_end(monkeypatch) -> None:
 
 def test_module_adapter_argument_shape_uses_current_python() -> None:
     assert Path(sys.executable).is_absolute()
+
+
+def test_scan_propagates_agent_result_error(monkeypatch) -> None:
+    async def failed_mission(self, agent: str, iterations: int):
+        del self, agent, iterations
+        return [
+            AgentResult(
+                role=AgentRole.ANALYST,
+                output="",
+                error="RuntimeError: analyst failed",
+            )
+        ]
+
+    monkeypatch.setattr(
+        "ai_agent_lab.cli.LabMission.run_indirect_injection",
+        failed_mission,
+    )
+    result = CliRunner().invoke(
+        cli,
+        [
+            "scan",
+            "--input",
+            '{"agent":"sql_assistant","attack":"indirect_injection"}',
+            "--json",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    envelope = json.loads(result.output)
+    assert envelope["errors"] == ["RuntimeError: analyst failed"]
+    assert len(envelope["findings"]) == 1
+
+
+def test_non_indirect_scan_does_not_run_lab_mission(monkeypatch) -> None:
+    async def unexpected_mission(self, agent: str, iterations: int):
+        del self, agent, iterations
+        raise AssertionError("mission should not run")
+
+    monkeypatch.setattr(
+        "ai_agent_lab.cli.LabMission.run_indirect_injection",
+        unexpected_mission,
+    )
+    result = CliRunner().invoke(
+        cli,
+        [
+            "scan",
+            "--input",
+            '{"agent":"code_act","attack":"shell_escape"}',
+            "--json",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.output)["errors"] == []

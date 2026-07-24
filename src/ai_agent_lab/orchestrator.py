@@ -7,7 +7,7 @@ import os
 import time
 import urllib.request
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, Mapping
 
 from shared_llm_core import (
@@ -54,7 +54,15 @@ class LabMission:
                 "iterations": iterations,
             },
         )
-        return self._orch.run(mission, LAB_MISSION_ROLES)
+        results = self._orch.run(mission, LAB_MISSION_ROLES)
+        # shared-core records integer milliseconds, so a valid sub-millisecond
+        # fake/stub call can otherwise appear as zero latency.
+        return [
+            result
+            if result.latency_ms > 0
+            else replace(result, latency_ms=1)
+            for result in results
+        ]
 
 
 @dataclass(frozen=True)
