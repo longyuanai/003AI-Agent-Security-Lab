@@ -36,6 +36,8 @@ from ai_agent_lab.multi_agent import (
 from ai_agent_lab.orchestrator import (
     AnthropicLLMRouter,
     FakeLLMRouter,
+    LAB_MISSION_ROLES,
+    LabMission,
     LLMRuntime,
     OpenAILLMRouter,
     build_llm_runtime,
@@ -72,6 +74,8 @@ __all__ = [
     "MetricRecord",
     "MCPAbuseRun",
     "LLMRuntime",
+    "LabMission",
+    "LAB_MISSION_ROLES",
     "FakeLLMRouter",
     "OpenAILLMRouter",
     "AnthropicLLMRouter",

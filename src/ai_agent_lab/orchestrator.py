@@ -16,6 +16,45 @@ from shared_llm_core import (
     ChatResponse,
     ChatUsage,
 )
+from shared_llm_core.multi_agent import (
+    AgentResult,
+    AgentRole,
+    MissionContext,
+    MultiAgentOrchestrator,
+)
+
+
+LAB_MISSION_ROLES: tuple[AgentRole, ...] = (
+    AgentRole.SCOUT,
+    AgentRole.ANALYST,
+    AgentRole.EXPLOITER,
+    AgentRole.SYNTHESIZER,
+    AgentRole.REVIEWER,
+)
+
+
+class LabMission:
+    """003 lab mission orchestrator using v0.5 MultiAgentOrchestrator."""
+
+    def __init__(self, router: Any) -> None:
+        self._orch = MultiAgentOrchestrator(router)
+
+    async def run_indirect_injection(
+        self,
+        agent: str,
+        iterations: int,
+    ) -> list[AgentResult]:
+        """Run the five-role indirect-injection mission."""
+
+        mission = MissionContext(
+            task=f"run {iterations}x indirect_injection against {agent}",
+            inputs={
+                "agent": agent,
+                "attack": "indirect_injection",
+                "iterations": iterations,
+            },
+        )
+        return self._orch.run(mission, LAB_MISSION_ROLES)
 
 
 @dataclass(frozen=True)
