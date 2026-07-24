@@ -50,6 +50,7 @@ from ai_agent_lab.sandbox import (
     SandboxTimeout,
     SandboxViolation,
 )
+from ai_agent_lab.scan import scan_payload
 from ai_agent_lab.scenarios import build_scenario_registry, evaluate_demo_scenarios
 from ai_agent_lab.target import TargetAgent, built_in_targets, get_target
 
@@ -94,6 +95,7 @@ __all__ = [
     "run_scenario",
     "run_mcp_abuse",
     "run_offline_mcp_abuse_demo",
+    "scan_payload",
     "write_asr_reports",
     "__version__",
 ]

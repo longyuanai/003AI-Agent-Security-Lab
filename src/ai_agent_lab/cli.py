@@ -25,6 +25,7 @@ from ai_agent_lab.report import (
 )
 from ai_agent_lab.runner import run_demo, run_scenario
 from ai_agent_lab.sandbox import Sandbox, SandboxError, SandboxPolicy
+from ai_agent_lab.scan import scan_payload
 from ai_agent_lab.scenarios import evaluate_demo_scenarios
 from ai_agent_lab.target import built_in_targets
 
@@ -35,6 +36,34 @@ console = Console()
 @click.version_option(__version__)
 def cli() -> None:
     """AI-Agent-Security-Lab: vulnerable agent + attack scenarios + detection."""
+
+
+@cli.command("scan")
+@click.option(
+    "--input",
+    "input_payload",
+    help="JSON payload. When omitted, read one JSON object from stdin.",
+)
+@click.option(
+    "--json",
+    "json_output",
+    is_flag=True,
+    help="Emit the IntegrationGateway JSON findings envelope.",
+)
+def scan_cmd(input_payload: str | None, json_output: bool) -> None:
+    """Run one adapter-compatible Agent × Attack scan."""
+
+    raw = input_payload if input_payload is not None else sys.stdin.read()
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise click.ClickException(f"invalid JSON input: {exc.msg}") from exc
+    if not isinstance(payload, dict):
+        raise click.ClickException("input payload must be a JSON object")
+
+    envelope = scan_payload(payload)
+    indent = None if json_output else 2
+    click.echo(json.dumps(envelope, ensure_ascii=False, indent=indent))
 
 
 def _build_router_or_none(provider: str) -> object | None:
@@ -259,6 +288,13 @@ def correlation_report_cmd(output: str) -> None:
 
 
 def main() -> None:
+    # shared-integration v0.5's JSONSubprocessAdapter currently invokes the
+    # module with root-level ``--input ... --json`` arguments. Keep that
+    # adapter contract working while exposing the documented ``scan`` command.
+    if len(sys.argv) > 1 and sys.argv[1].startswith("--") and (
+        "--input" in sys.argv[1:] or "--json" in sys.argv[1:]
+    ):
+        sys.argv.insert(1, "scan")
     cli()
 
 
