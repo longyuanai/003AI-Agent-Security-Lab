@@ -19,6 +19,7 @@ from ai_agent_lab import __version__
 from ai_agent_lab.attacks import built_in_scenarios, get_scenario
 from ai_agent_lab.metrics import evaluate_asr, write_asr_reports
 from ai_agent_lab.multi_agent import run_offline_mcp_abuse_demo
+from ai_agent_lab.orchestrator import build_llm_runtime
 from ai_agent_lab.report import (
     build_demo_correlation_report,
     write_correlation_markdown,
@@ -61,7 +62,18 @@ def scan_cmd(input_payload: str | None, json_output: bool) -> None:
     if not isinstance(payload, dict):
         raise click.ClickException("input payload must be a JSON object")
 
-    envelope = scan_payload(payload)
+    runtime = build_llm_runtime()
+    from ai_agent_lab.detector import Detector, HeuristicDetector, LLMDetector
+
+    detector = Detector(
+        heuristic=HeuristicDetector(),
+        llm=LLMDetector(router=runtime.router),
+    )
+    envelope = scan_payload(payload, detector=detector)
+    for finding in envelope["findings"]:
+        finding["metadata"]["llm_provider"] = runtime.provider
+        if runtime.fallback_reason:
+            finding["metadata"]["llm_fallback_reason"] = runtime.fallback_reason
     indent = None if json_output else 2
     click.echo(json.dumps(envelope, ensure_ascii=False, indent=indent))
 

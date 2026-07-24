@@ -33,6 +33,13 @@ from ai_agent_lab.multi_agent import (
     run_mcp_abuse,
     run_offline_mcp_abuse_demo,
 )
+from ai_agent_lab.orchestrator import (
+    AnthropicLLMRouter,
+    FakeLLMRouter,
+    LLMRuntime,
+    OpenAILLMRouter,
+    build_llm_runtime,
+)
 from ai_agent_lab.reporter import render_markdown
 from ai_agent_lab.report import (
     CrossScenarioReport,
@@ -64,6 +71,10 @@ __all__ = [
     "ASRReport",
     "MetricRecord",
     "MCPAbuseRun",
+    "LLMRuntime",
+    "FakeLLMRouter",
+    "OpenAILLMRouter",
+    "AnthropicLLMRouter",
     "RateSummary",
     "CrossScenarioReport",
     "TargetCorrelation",
@@ -83,6 +94,7 @@ __all__ = [
     "built_in_scenarios",
     "built_in_targets",
     "build_mcp_abuse_mission",
+    "build_llm_runtime",
     "build_correlation_report",
     "build_demo_correlation_report",
     "build_scenario_registry",

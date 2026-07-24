@@ -129,3 +129,32 @@ python -m ai_agent_lab.cli correlation-report -o v05-correlation-report.md
 ```
 
 All demo targets use `fixture://` inputs and synthetic canary values.
+
+## LLM provider switching
+
+The IntegrationGateway-compatible `scan` command reads `LLM_PROVIDER`:
+
+```powershell
+# Deterministic offline mode (also the no-key fallback)
+$env:LLM_PROVIDER = "fake"
+
+# Official OpenAI SDK
+$env:LLM_PROVIDER = "openai"
+$env:OPENAI_API_KEY = "<your-key>"
+$env:OPENAI_MODEL = "gpt-4.1-mini"  # optional
+
+# Anthropic native Messages API (stdlib HTTP, no extra dependency)
+$env:LLM_PROVIDER = "anthropic"
+$env:ANTHROPIC_API_KEY = "<your-key>"
+$env:ANTHROPIC_MODEL = "claude-sonnet-4-5"  # optional
+```
+
+Without `LLM_PROVIDER`, the lab selects an available OpenAI key, then an
+Anthropic key, and otherwise uses fake. Explicitly selecting a live provider
+without its key also falls back to fake; the reason is included in finding
+metadata.
+
+```powershell
+'{"agent":"sql_assistant","attack":"indirect_injection"}' |
+  python -m ai_agent_lab.cli scan --json
+```
