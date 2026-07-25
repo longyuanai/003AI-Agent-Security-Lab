@@ -381,6 +381,16 @@ def metrics_cmd(markdown_path: str, json_path: str) -> None:
         f"[bold]Successful:[/bold] {summary.successes}  "
         f"[bold]ASR:[/bold] {summary.asr:.1%}"
     )
+    if report.quality is not None:
+        quality = report.quality
+        fpr_style = "green" if quality.false_positives == 0 else "yellow"
+        console.print(
+            f"[bold]Detection:[/bold] recall {quality.recall:.1%}  "
+            f"precision {quality.precision:.1%}  "
+            f"[{fpr_style}]FPR {quality.false_positive_rate:.1%}[/{fpr_style}] "
+            f"({quality.false_positives}/"
+            f"{quality.false_positives + quality.true_negatives} benign flagged)"
+        )
     console.print(f"[green]Wrote[/green] {md_path}")
     console.print(f"[green]Wrote[/green] {js_path}")
 
