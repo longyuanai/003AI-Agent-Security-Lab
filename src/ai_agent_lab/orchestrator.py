@@ -39,12 +39,17 @@ class LabMission:
     def __init__(self, router: Any) -> None:
         self._orch = MultiAgentOrchestrator(router)
 
-    async def run_indirect_injection(
+    def run_indirect_injection(
         self,
         agent: str,
         iterations: int,
     ) -> list[AgentResult]:
-        """Run the five-role indirect-injection mission."""
+        """Run the five-role indirect-injection mission.
+
+        Synchronous: `MultiAgentOrchestrator.run` drives the roles sequentially
+        and never yields, so this used to be a coroutine that awaited nothing
+        while every caller paid for an event loop.
+        """
 
         mission = MissionContext(
             task=f"run {iterations}x indirect_injection against {agent}",
@@ -122,14 +127,38 @@ class OpenAILLMRouter:
         self._client = OpenAI(**kwargs)
         self._model = model
 
-    def chat(self, tier: Any, req: Any) -> Any:
+    def chat(self, tier: Any, req: Any) -> ChatResponse:
         del tier
         body = req.model_dump(exclude_none=True)
         body.pop("request_id", None)
         extra = body.pop("extra", {})
         body.update(extra)
         body["model"] = body.get("model") or self._model
-        return self._client.chat.completions.create(**body)
+        completion = self._client.chat.completions.create(**body)
+        # Normalise to ChatResponse so every router in this module returns the
+        # same type; callers reading `.usage` used to break on this path.
+        usage = getattr(completion, "usage", None)
+        return ChatResponse(
+            id=str(completion.id),
+            model=str(completion.model),
+            created=int(getattr(completion, "created", 0) or 0),
+            choices=[
+                ChatChoice(
+                    index=choice.index,
+                    message=ChatMessage(
+                        role=choice.message.role,
+                        content=choice.message.content or "",
+                    ),
+                    finish_reason=choice.finish_reason,
+                )
+                for choice in completion.choices
+            ],
+            usage=ChatUsage(
+                prompt_tokens=getattr(usage, "prompt_tokens", 0) or 0,
+                completion_tokens=getattr(usage, "completion_tokens", 0) or 0,
+                total_tokens=getattr(usage, "total_tokens", 0) or 0,
+            ),
+        )
 
 
 class AnthropicLLMRouter:
@@ -158,6 +187,21 @@ class AnthropicLLMRouter:
             else:
                 messages.append({"role": message.role, "content": message.content})
 
+        # The Messages API has no `response_format`. Silently dropping it made
+        # JSON-mode callers (the judge and the LLM detector) parse prose, so
+        # translate it into the supported equivalents: an explicit instruction
+        # plus an assistant prefill that forces the reply to open with `{`.
+        wants_json = (
+            isinstance(getattr(req, "response_format", None), dict)
+            and req.response_format.get("type") == "json_object"
+        )
+        if wants_json:
+            system_parts.append(
+                "Reply with a single valid JSON object and nothing else. "
+                "Do not wrap it in Markdown fences or prose."
+            )
+            messages.append({"role": "assistant", "content": "{"})
+
         body: dict[str, Any] = {
             "model": req.model or self._model,
             "messages": messages,
@@ -185,6 +229,9 @@ class AnthropicLLMRouter:
             for block in raw.get("content", [])
             if block.get("type") == "text"
         )
+        if wants_json:
+            # The prefilled "{" is not echoed back in the completion.
+            content = "{" + content
         usage = raw.get("usage", {})
         input_tokens = int(usage.get("input_tokens", 0))
         output_tokens = int(usage.get("output_tokens", 0))

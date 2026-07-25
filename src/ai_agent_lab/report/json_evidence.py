@@ -29,6 +29,8 @@ def build_json_evidence(
             "mitre_url": run.tactic.mitre_url,
         },
         "agent": run.agent,
+        # None means the payload order is not reproducible; see `--seed`.
+        "seed": run.seed,
         "iterations": [
             {
                 "iteration": record.iteration,

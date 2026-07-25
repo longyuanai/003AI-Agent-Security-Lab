@@ -8,7 +8,6 @@ run the heuristic detector so the demo always works offline.
 
 from __future__ import annotations
 
-import asyncio
 import json
 import sys
 from datetime import datetime
@@ -38,7 +37,7 @@ from ai_agent_lab.runner import (
     run_scenario,
 )
 from ai_agent_lab.sandbox import Sandbox, SandboxError, SandboxPolicy
-from ai_agent_lab.scan import scan_payload
+from ai_agent_lab.scan import explain_empty_scan, scan_payload
 from ai_agent_lab.scenarios import evaluate_demo_scenarios
 from ai_agent_lab.target import built_in_targets
 
@@ -72,10 +71,20 @@ def cli() -> None:
         "output/<ISO timestamp>-<attack_id>.md."
     ),
 )
+@click.option(
+    "--seed",
+    type=int,
+    default=None,
+    help=(
+        "Seed ATLAS payload selection so the run is reproducible. "
+        "May also be given as \"seed\" in the JSON payload."
+    ),
+)
 def scan_cmd(
     input_payload: str | None,
     json_output: bool,
     report_path: str | None,
+    seed: int | None,
 ) -> None:
     """Run one adapter-compatible Agent × Attack scan."""
 
@@ -87,6 +96,12 @@ def scan_cmd(
     if not isinstance(payload, dict):
         raise click.ClickException("input payload must be a JSON object")
 
+    if seed is None and payload.get("seed") is not None:
+        try:
+            seed = int(payload["seed"])
+        except (TypeError, ValueError) as exc:
+            raise click.ClickException("\"seed\" must be an integer") from exc
+
     attack = str(payload.get("attack", "")).strip().upper()
     if attack.startswith("AML.T"):
         try:
@@ -94,6 +109,7 @@ def scan_cmd(
                 attack,
                 agent=str(payload.get("agent", "")),
                 iterations=int(payload.get("iterations", 1)),
+                seed=seed,
             )
             atlas_envelope = atlas_run_to_envelope(atlas_run)
             generated_at_dt = datetime.now()
@@ -150,11 +166,9 @@ def scan_cmd(
     mission_results = []
     errors: list[str] = []
     if _is_indirect_mission_payload(payload):
-        mission_results = asyncio.run(
-            LabMission(runtime.router).run_indirect_injection(
-                str(payload["agent"]),
-                int(payload.get("iterations", 1)),
-            )
+        mission_results = LabMission(runtime.router).run_indirect_injection(
+            str(payload["agent"]),
+            int(payload.get("iterations", 1)),
         )
         errors.extend(
             result.error for result in mission_results if result.error is not None
@@ -181,6 +195,13 @@ def scan_cmd(
     envelope["errors"] = errors
     indent = None if json_output else 2
     click.echo(json.dumps(envelope, ensure_ascii=False, indent=indent))
+
+    # An empty envelope is ambiguous -- a mistyped agent name looks exactly
+    # like a scan that found nothing. The §15 envelope shape is frozen and
+    # `--json` is the machine contract, so explain only in human mode.
+    if not json_output and not envelope["findings"]:
+        for reason in explain_empty_scan(payload):
+            click.echo(f"no findings: {reason}", err=True)
 
 
 def _is_indirect_mission_payload(payload: dict[str, object]) -> bool:
@@ -209,8 +230,12 @@ def _is_indirect_mission_payload(payload: dict[str, object]) -> bool:
     )
 
 
-def _build_router_or_none(provider: str) -> object | None:
-    """Try to build an LLM router. Never raise - we always have the heuristic."""
+def _build_router_or_none() -> object | None:
+    """Try to build an LLM router. Never raise - we always have the heuristic.
+
+    The provider is selected through the `LLM_PROVIDERS` environment variable,
+    which the caller sets before calling this.
+    """
     try:
         from shared_llm_core.router import LLMRouter
 
@@ -252,7 +277,7 @@ def run(scenario: str, output: str, provider: str, json_out: bool) -> None:
     import os
     os.environ.setdefault("LLM_PROVIDERS", provider)
 
-    router = _build_router_or_none(provider)
+    router = _build_router_or_none()
 
     if scenario == "demo":
         results = run_demo(router=router)

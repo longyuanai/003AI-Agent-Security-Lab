@@ -11,7 +11,7 @@ from ai_agent_lab.attacks import Scenario, built_in_scenarios
 from ai_agent_lab.datatypes import RunResult, Trace, Verdict
 from ai_agent_lab.detector import Detector, HeuristicDetector, LLMDetector, is_detected
 from ai_agent_lab.judge import JudgeResult, LabJudge, build_lab_judge
-from ai_agent_lab.target import TargetAgent, built_in_targets
+from ai_agent_lab.target import TargetAgent, resolve_agent
 
 
 @dataclass
@@ -70,19 +70,12 @@ class AtlasRun:
     tactic: ATLASTactic
     agent: str
     records: tuple[AtlasIterationRecord, ...]
+    # None means payload order came from SystemRandom and is not reproducible.
+    seed: int | None = None
 
     @property
     def used_payloads(self) -> tuple[str, ...]:
         return tuple(record.payload for record in self.records)
-
-
-_ATLAS_AGENT_NAMES = {
-    "sql_assistant": "sqli-helper",
-    "email_assistant": "email-assistant",
-    "file_rag": "file-rag-agent",
-    "web_browser": "web-browser-agent",
-    "code_act": "code-act-agent",
-}
 
 
 def run_atlas_tactic(
@@ -93,15 +86,27 @@ def run_atlas_tactic(
     detector: Detector | None = None,
     judge: LabJudge | None = None,
     rng: random.Random | None = None,
+    seed: int | None = None,
 ) -> AtlasRun:
-    """Run safe variants without repeating until the tactic pool is exhausted."""
+    """Run safe variants without repeating until the tactic pool is exhausted.
+
+    Payload order is random. Pass `seed` (or a pre-seeded `rng`) to make a run
+    reproducible -- a red-team report nobody can regenerate is not evidence.
+    """
 
     if not 1 <= iterations <= 100:
         raise ValueError("iterations must be between 1 and 100")
+    if rng is not None and seed is not None:
+        raise ValueError("pass either rng or seed, not both")
     tactic = get_tactic(tactic_id)
     target = _get_atlas_target(agent)
     active_judge = judge or build_lab_judge()
-    chooser = rng or random.SystemRandom()
+    if rng is not None:
+        chooser: random.Random = rng
+    elif seed is not None:
+        chooser = random.Random(seed)
+    else:
+        chooser = random.SystemRandom()
     variants = list(tactic.payloads)
     selected: list[str] = []
     while len(selected) < iterations:
@@ -131,7 +136,12 @@ def run_atlas_tactic(
                 error=error,
             )
         )
-    return AtlasRun(tactic=tactic, agent=agent, records=tuple(records))
+    return AtlasRun(
+        tactic=tactic,
+        agent=agent,
+        records=tuple(records),
+        seed=seed,
+    )
 
 
 def atlas_run_to_envelope(run: AtlasRun) -> dict[str, object]:
@@ -180,18 +190,16 @@ def atlas_run_to_envelope(run: AtlasRun) -> dict[str, object]:
             "findings": len(findings),
             "errors": len(errors),
             "judge_mode": next(iter(judge_modes), "unavailable"),
+            "seed": run.seed,
         },
     }
 
 
 def _get_atlas_target(agent: str) -> TargetAgent:
-    try:
-        target_name = _ATLAS_AGENT_NAMES[agent]
-    except KeyError as exc:
-        raise KeyError(f"Unknown lab agent: {agent!r}") from exc
-    return next(
-        target for target in built_in_targets() if target.name == target_name
-    )
+    target = resolve_agent(agent)
+    if target is None:
+        raise KeyError(f"Unknown lab agent: {agent!r}")
+    return target
 
 
 def run_scenario(

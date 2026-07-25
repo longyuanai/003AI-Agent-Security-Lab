@@ -134,7 +134,9 @@ def test_module_adapter_argument_shape_uses_current_python() -> None:
 
 
 def test_scan_propagates_agent_result_error(monkeypatch) -> None:
-    async def failed_mission(self, agent: str, iterations: int):
+    # `run_indirect_injection` is synchronous; the orchestrator it wraps runs
+    # the roles sequentially and never yields.
+    def failed_mission(self, agent: str, iterations: int):
         del self, agent, iterations
         return [
             AgentResult(

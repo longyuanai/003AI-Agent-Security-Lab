@@ -60,6 +60,7 @@ def render_red_team_markdown(
         generated_at=generated_at,
         tactic=run.tactic,
         agent=run.agent,
+        seed=run.seed,
         summary=envelope.get("summary", {}),
         findings=envelope.get("findings", []),
         errors=envelope.get("errors", []),

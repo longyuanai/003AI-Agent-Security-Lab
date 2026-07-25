@@ -103,30 +103,35 @@ def _group_is_inside_url(text: str, match: re.Match[str], group: str) -> bool:
 _BUILT_IN_TARGETS: tuple[dict[str, object], ...] = (
     {
         "agent_type": "sqli",
+        "api_name": "sql_assistant",
         "name": "sqli-helper",
         "description": "Vulnerable SQL helper: sends raw user text to the SQL tool.",
         "available_tools": ("sql_query",),
     },
     {
         "agent_type": "email",
+        "api_name": "email_assistant",
         "name": "email-assistant",
         "description": "Vulnerable email assistant: trusts SMTP content and forwards secrets.",
         "available_tools": ("read_smtp", "search_email", "send_email", "delete_email"),
     },
     {
         "agent_type": "file_rag",
+        "api_name": "file_rag",
         "name": "file-rag-agent",
         "description": "Vulnerable file RAG agent: trusts DOCX/PDF text and unsafe paths.",
         "available_tools": ("rag_search", "read_document", "read_file"),
     },
     {
         "agent_type": "web_browser",
+        "api_name": "web_browser",
         "name": "web-browser-agent",
         "description": "Vulnerable Playwright browser: treats page content as instructions.",
         "available_tools": ("playwright_open",),
     },
     {
         "agent_type": "code_act",
+        "api_name": "code_act",
         "name": "code-act-agent",
         "description": "Vulnerable Code-Act agent: executes generated Python without approval.",
         "available_tools": ("exec_python",),
@@ -162,6 +167,9 @@ class TargetAgent:
         "exec_python",
     )
     agent_type: str = "legacy"
+    # Stable name used by the adapter/gateway API. Empty for the legacy
+    # all-tools default profile, which is not externally addressable.
+    api_name: str = ""
 
     def _route(self, user_input: str) -> ToolCall:
         """Return the ToolCall this agent would issue for `user_input`."""
@@ -311,3 +319,36 @@ def get_target(name: str) -> TargetAgent:
         if target.name == name:
             return target
     raise KeyError(f"Unknown target: {name!r}")
+
+
+def agent_aliases() -> dict[str, str]:
+    """Map every accepted spelling of an agent to its canonical target name.
+
+    Derived from `_BUILT_IN_TARGETS` so the profile table stays the single
+    source of truth; this used to be hand-maintained in three places that
+    could drift independently.
+    """
+
+    aliases: dict[str, str] = {}
+    for target in built_in_targets():
+        for spelling in (target.name, target.agent_type, target.api_name):
+            if spelling:
+                aliases[spelling.lower()] = target.name
+    return aliases
+
+
+def resolve_agent(value: object) -> TargetAgent | None:
+    """Resolve an agent by any accepted spelling, or None when unknown."""
+
+    if not isinstance(value, str):
+        return None
+    canonical = agent_aliases().get(value.strip().lower())
+    if canonical is None:
+        return None
+    return get_target(canonical)
+
+
+def external_agent_name(target: TargetAgent) -> str:
+    """Return the adapter-facing name for a target."""
+
+    return target.api_name or target.name

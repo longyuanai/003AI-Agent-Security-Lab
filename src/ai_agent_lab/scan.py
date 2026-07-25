@@ -8,22 +8,14 @@ from typing import Any
 
 from ai_agent_lab.attacks import Scenario, built_in_scenarios
 from ai_agent_lab.detector import Detector
-from ai_agent_lab.target import TargetAgent, built_in_targets
+from ai_agent_lab.target import (
+    TargetAgent,
+    agent_aliases,
+    external_agent_name,
+    resolve_agent,
+)
 
-_AGENT_ALIASES: dict[str, str] = {
-    "sql_assistant": "sqli-helper",
-    "sqli": "sqli-helper",
-    "sqli-helper": "sqli-helper",
-    "email_assistant": "email-assistant",
-    "email": "email-assistant",
-    "email-assistant": "email-assistant",
-    "file_rag": "file-rag-agent",
-    "file-rag-agent": "file-rag-agent",
-    "web_browser": "web-browser-agent",
-    "web-browser-agent": "web-browser-agent",
-    "code_act": "code-act-agent",
-    "code-act-agent": "code-act-agent",
-}
+# Agent spellings come from the built-in profile table; see target.py.
 
 _ATTACK_ALIASES: dict[str, str] = {
     "indirect_inj": "indirect_prompt_injection",
@@ -72,6 +64,40 @@ _DISPLAY_NAMES: dict[str, str] = {
 }
 
 
+def explain_empty_scan(payload: Mapping[str, Any]) -> list[str]:
+    """Explain why `scan_payload` produced no findings.
+
+    An empty envelope is ambiguous: a mistyped agent name looks exactly like a
+    scan that legitimately found nothing. The §15 envelope shape is frozen, so
+    these reasons are for humans (the CLI prints them to stderr) rather than
+    part of the JSON contract.
+    """
+
+    reasons: list[str] = []
+    if _resolve_target(payload.get("agent")) is None:
+        reasons.append(
+            f"unknown agent {payload.get('agent')!r}; expected one of: "
+            + ", ".join(sorted(agent_aliases()))
+        )
+    attack = _resolve_attack(payload.get("attack"))
+    if attack is None:
+        reasons.append(
+            f"unknown attack {payload.get('attack')!r}; expected one of: "
+            + ", ".join(sorted(set(_ATTACK_ALIASES)))
+        )
+    elif _resolve_scenario(attack) is None:
+        reasons.append(f"no built-in scenario provides attack {attack!r}")
+    if _resolve_iterations(payload.get("iterations", 1)) is None:
+        reasons.append(
+            f"iterations {payload.get('iterations')!r} is not an integer in 1..100"
+        )
+    if not reasons:
+        reasons.append(
+            "inputs were valid; the detector returned 'safe' for every iteration"
+        )
+    return reasons
+
+
 def scan_payload(
     payload: Mapping[str, Any],
     *,
@@ -82,6 +108,9 @@ def scan_payload(
     A valid attack produces one aggregate finding when the detector fires.
     Tool execution is reported separately as ASR, so a blocked attack remains
     observable as a finding with ``ASR=0/N``.
+
+    Returns no findings when the payload cannot be resolved; call
+    `explain_empty_scan` for the reason.
     """
 
     target = _resolve_target(payload.get("agent"))
@@ -113,7 +142,7 @@ def scan_payload(
         return {"findings": []}
 
     narrative = (
-        f"Agent: {_external_agent_name(target)}, Attack: {attack}, "
+        f"Agent: {external_agent_name(target)}, Attack: {attack}, "
         f"ASR={successes}/{iterations}"
     )
     confidence = 0.88 if any(
@@ -133,7 +162,7 @@ def scan_payload(
         "evidence": list(evidence[:3]),
         "tags": ["agent-security-lab", attack],
         "metadata": {
-            "agent": _external_agent_name(target),
+            "agent": external_agent_name(target),
             "attack": attack,
             "iterations": iterations,
             "attack_successes": successes,
@@ -144,12 +173,7 @@ def scan_payload(
 
 
 def _resolve_target(value: Any) -> TargetAgent | None:
-    if not isinstance(value, str):
-        return None
-    name = _AGENT_ALIASES.get(value.strip().lower())
-    if name is None:
-        return None
-    return next((target for target in built_in_targets() if target.name == name), None)
+    return resolve_agent(value)
 
 
 def _resolve_attack(value: Any) -> str | None:
@@ -202,17 +226,7 @@ def _payload_for(target: TargetAgent, scenario: Scenario) -> str:
     )
 
 
-def _external_agent_name(target: TargetAgent) -> str:
-    return {
-        "sqli": "sql_assistant",
-        "email": "email_assistant",
-        "file_rag": "file_rag",
-        "web_browser": "web_browser",
-        "code_act": "code_act",
-    }[target.agent_type]
-
-
 def _finding_title(target: TargetAgent, attack: str) -> str:
     if target.agent_type == "sqli" and attack == "indirect_prompt_injection":
         return "SQL injection via indirect prompt injection"
-    return f"{_DISPLAY_NAMES[attack]} against {_external_agent_name(target)}"
+    return f"{_DISPLAY_NAMES[attack]} against {external_agent_name(target)}"
