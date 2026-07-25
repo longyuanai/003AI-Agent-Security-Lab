@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import random
+import uuid
 from dataclasses import dataclass, field
 
 from ai_agent_lab.atlas import ATLASTactic, get_tactic
 from ai_agent_lab.attacks import Scenario, built_in_scenarios
 from ai_agent_lab.datatypes import Detection, RunResult, Trace, Verdict
 from ai_agent_lab.detector import Detector, HeuristicDetector, LLMDetector, is_detected
+from ai_agent_lab.judge import JudgeResult, LabJudge, build_lab_judge
 from ai_agent_lab.target import TargetAgent, built_in_targets
 
 
@@ -47,7 +49,8 @@ class AtlasIterationRecord:
     payload_index: int
     payload: str
     trace: Trace
-    detection: Detection
+    judge: JudgeResult | None
+    error: str | None = None
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -55,7 +58,8 @@ class AtlasIterationRecord:
             "payload_index": self.payload_index,
             "payload": self.payload,
             "trace": self.trace.to_dict(),
-            "detection": self.detection.to_dict(),
+            "judge": self.judge.to_dict() if self.judge else None,
+            "error": self.error,
         }
 
 
@@ -87,6 +91,7 @@ def run_atlas_tactic(
     agent: str,
     iterations: int,
     detector: Detector | None = None,
+    judge: LabJudge | None = None,
     rng: random.Random | None = None,
 ) -> AtlasRun:
     """Run safe variants without repeating until the tactic pool is exhausted."""
@@ -95,7 +100,7 @@ def run_atlas_tactic(
         raise ValueError("iterations must be between 1 and 100")
     tactic = get_tactic(tactic_id)
     target = _get_atlas_target(agent)
-    active_detector = detector or Detector()
+    active_judge = judge or build_lab_judge()
     chooser = rng or random.SystemRandom()
     variants = list(tactic.payloads)
     selected: list[str] = []
@@ -110,16 +115,73 @@ def run_atlas_tactic(
             scenario_name=tactic.id,
             category="mitre_atlas",
         )
+        try:
+            judged = active_judge.judge(trace)
+            error = None
+        except Exception as exc:  # noqa: BLE001 - isolate judge iterations
+            judged = None
+            error = f"{type(exc).__name__}: {exc}"
         records.append(
             AtlasIterationRecord(
                 iteration=iteration,
                 payload_index=tactic.payloads.index(payload),
                 payload=payload,
                 trace=trace,
-                detection=active_detector.detect(trace),
+                judge=judged,
+                error=error,
             )
         )
     return AtlasRun(tactic=tactic, agent=agent, records=tuple(records))
+
+
+def atlas_run_to_envelope(run: AtlasRun) -> dict[str, object]:
+    """Normalize an ATLAS run without changing the frozen Finding schema."""
+
+    findings: list[dict[str, object]] = []
+    errors: list[str] = []
+    for record in run.records:
+        if record.error:
+            errors.append(f"iteration {record.iteration}: {record.error}")
+            continue
+        if record.judge is None or record.judge.verdict is Verdict.SAFE:
+            continue
+        findings.append(
+            {
+                "id": str(uuid.uuid4()),
+                "severity": run.tactic.severity_default.value,
+                "confidence": record.judge.confidence,
+                "title": f"{run.tactic.id} - {run.tactic.name}",
+                "description": (
+                    f"Agent: {run.agent}, iteration: {record.iteration}, "
+                    f"judge: {record.judge.verdict.value}"
+                ),
+                "evidence": [record.judge.reason],
+                "tags": ["mitre-atlas", run.tactic.id],
+                "metadata": {
+                    "attack": run.tactic.id,
+                    "agent": run.agent,
+                    "iteration": record.iteration,
+                    "payload_variant": record.payload_index,
+                    "judge": record.judge.to_dict(),
+                    "mitre_url": run.tactic.mitre_url,
+                },
+            }
+        )
+    judge_modes = {
+        record.judge.mode for record in run.records if record.judge is not None
+    }
+    return {
+        "findings": findings,
+        "errors": errors,
+        "summary": {
+            "attack_id": run.tactic.id,
+            "agent": run.agent,
+            "iterations": len(run.records),
+            "findings": len(findings),
+            "errors": len(errors),
+            "judge_mode": next(iter(judge_modes), "unavailable"),
+        },
+    }
 
 
 def _get_atlas_target(agent: str) -> TargetAgent:

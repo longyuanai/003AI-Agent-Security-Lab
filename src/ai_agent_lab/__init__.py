@@ -33,6 +33,13 @@ from ai_agent_lab.multi_agent import (
     run_mcp_abuse,
     run_offline_mcp_abuse_demo,
 )
+from ai_agent_lab.judge import (
+    JudgeResult,
+    LabJudge,
+    RouterLabJudge,
+    StubLabJudge,
+    build_lab_judge,
+)
 from ai_agent_lab.orchestrator import (
     AnthropicLLMRouter,
     FakeLLMRouter,
@@ -54,6 +61,7 @@ from ai_agent_lab.runner import (
     AtlasIterationRecord,
     AtlasRun,
     Runner,
+    atlas_run_to_envelope,
     run_atlas_tactic,
     run_scenario,
 )
@@ -76,6 +84,10 @@ __all__ = [
     "Detector",
     "HeuristicDetector",
     "LLMDetector",
+    "JudgeResult",
+    "LabJudge",
+    "RouterLabJudge",
+    "StubLabJudge",
     "ASRReport",
     "AtlasIterationRecord",
     "AtlasRun",
@@ -107,6 +119,7 @@ __all__ = [
     "built_in_targets",
     "build_mcp_abuse_mission",
     "build_llm_runtime",
+    "build_lab_judge",
     "build_correlation_report",
     "build_demo_correlation_report",
     "build_scenario_registry",
@@ -118,6 +131,7 @@ __all__ = [
     "render_correlation_markdown",
     "run_scenario",
     "run_atlas_tactic",
+    "atlas_run_to_envelope",
     "run_mcp_abuse",
     "run_offline_mcp_abuse_demo",
     "scan_payload",

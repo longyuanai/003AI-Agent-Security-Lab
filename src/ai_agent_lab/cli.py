@@ -25,7 +25,12 @@ from ai_agent_lab.report import (
     build_demo_correlation_report,
     write_correlation_markdown,
 )
-from ai_agent_lab.runner import run_demo, run_scenario
+from ai_agent_lab.runner import (
+    atlas_run_to_envelope,
+    run_atlas_tactic,
+    run_demo,
+    run_scenario,
+)
 from ai_agent_lab.sandbox import Sandbox, SandboxError, SandboxPolicy
 from ai_agent_lab.scan import scan_payload
 from ai_agent_lab.scenarios import evaluate_demo_scenarios
@@ -62,6 +67,33 @@ def scan_cmd(input_payload: str | None, json_output: bool) -> None:
         raise click.ClickException(f"invalid JSON input: {exc.msg}") from exc
     if not isinstance(payload, dict):
         raise click.ClickException("input payload must be a JSON object")
+
+    attack = str(payload.get("attack", "")).strip().upper()
+    if attack.startswith("AML.T"):
+        try:
+            atlas_run = run_atlas_tactic(
+                attack,
+                agent=str(payload.get("agent", "")),
+                iterations=int(payload.get("iterations", 1)),
+            )
+            atlas_envelope = atlas_run_to_envelope(atlas_run)
+        except (KeyError, TypeError, ValueError) as exc:
+            atlas_envelope = {
+                "findings": [],
+                "errors": [f"{type(exc).__name__}: {exc}"],
+                "summary": {
+                    "attack_id": attack,
+                    "iterations": 0,
+                    "findings": 0,
+                    "errors": 1,
+                    "judge_mode": "unavailable",
+                },
+            }
+        indent = None if json_output else 2
+        click.echo(
+            json.dumps(atlas_envelope, ensure_ascii=False, indent=indent)
+        )
+        return
 
     runtime = build_llm_runtime()
     from ai_agent_lab.detector import Detector, HeuristicDetector, LLMDetector
