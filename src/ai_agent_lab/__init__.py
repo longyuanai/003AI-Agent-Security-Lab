@@ -50,7 +50,13 @@ from ai_agent_lab.report import (
     build_demo_correlation_report,
     render_correlation_markdown,
 )
-from ai_agent_lab.runner import Runner, run_scenario
+from ai_agent_lab.runner import (
+    AtlasIterationRecord,
+    AtlasRun,
+    Runner,
+    run_atlas_tactic,
+    run_scenario,
+)
 from ai_agent_lab.sandbox import (
     Sandbox,
     SandboxError,
@@ -71,6 +77,8 @@ __all__ = [
     "HeuristicDetector",
     "LLMDetector",
     "ASRReport",
+    "AtlasIterationRecord",
+    "AtlasRun",
     "MetricRecord",
     "MCPAbuseRun",
     "LLMRuntime",
@@ -109,6 +117,7 @@ __all__ = [
     "render_asr_markdown",
     "render_correlation_markdown",
     "run_scenario",
+    "run_atlas_tactic",
     "run_mcp_abuse",
     "run_offline_mcp_abuse_demo",
     "scan_payload",
