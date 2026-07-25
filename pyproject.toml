@@ -22,6 +22,18 @@ pytest-mock = "^3.14.0"
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
+[project.entry-points."longyuanai.atlas_tactics"]
+"AML.T0051" = "ai_agent_lab.atlas.aml_t0051:TACTIC"
+"AML.T0051.001" = "ai_agent_lab.atlas.aml_t0051:DIRECT_TACTIC"
+"AML.T0051.002" = "ai_agent_lab.atlas.aml_t0051:INDIRECT_TACTIC"
+"AML.T0054" = "ai_agent_lab.atlas.aml_t0054:TACTIC"
+"AML.T0024" = "ai_agent_lab.atlas.aml_t0024:TACTIC"
+"AML.T0050" = "ai_agent_lab.atlas.aml_t0050:TACTIC"
+"AML.T0048" = "ai_agent_lab.atlas.aml_t0048:TACTIC"
+"AML.T0020" = "ai_agent_lab.atlas.aml_t0020:TACTIC"
+"AML.T0031" = "ai_agent_lab.atlas.aml_t0031:TACTIC"
+"AML.T0040" = "ai_agent_lab.atlas.aml_t0040:TACTIC"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "--basetemp=.pytest-tmp"
