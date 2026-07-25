@@ -6,6 +6,7 @@ import random
 
 import pytest
 
+from ai_agent_lab.judge import StubLabJudge
 from ai_agent_lab.runner import run_atlas_tactic
 
 
@@ -14,6 +15,7 @@ def test_runner_uses_five_different_payload_variants() -> None:
         "AML.T0051",
         agent="sql_assistant",
         iterations=5,
+        judge=StubLabJudge(),
         rng=random.Random(51),
     )
     assert len(run.records) == 5
@@ -25,6 +27,7 @@ def test_runner_records_payload_index_and_iteration() -> None:
         "AML.T0051",
         agent="web_browser",
         iterations=3,
+        judge=StubLabJudge(),
         rng=random.Random(1),
     )
     assert [record.iteration for record in run.records] == [1, 2, 3]
@@ -36,6 +39,7 @@ def test_runner_trace_uses_atlas_id_without_real_tool_action() -> None:
         "AML.T0051.002",
         agent="code_act",
         iterations=1,
+        judge=StubLabJudge(),
         rng=random.Random(2),
     )
     record = run.records[0]
@@ -46,7 +50,12 @@ def test_runner_trace_uses_atlas_id_without_real_tool_action() -> None:
 
 def test_runner_rejects_unknown_agent() -> None:
     with pytest.raises(KeyError, match="Unknown lab agent"):
-        run_atlas_tactic("AML.T0051", agent="unknown", iterations=1)
+        run_atlas_tactic(
+            "AML.T0051",
+            agent="unknown",
+            iterations=1,
+            judge=StubLabJudge(),
+        )
 
 
 @pytest.mark.parametrize("iterations", [0, 101])
@@ -56,6 +65,7 @@ def test_runner_rejects_invalid_iteration_count(iterations: int) -> None:
             "AML.T0051",
             agent="sql_assistant",
             iterations=iterations,
+            judge=StubLabJudge(),
         )
 
 
@@ -64,6 +74,7 @@ def test_runner_cycles_only_after_all_variants_are_used() -> None:
         "AML.T0051",
         agent="file_rag",
         iterations=6,
+        judge=StubLabJudge(),
         rng=random.Random(3),
     )
     assert len(set(run.used_payloads[:5])) == 5
