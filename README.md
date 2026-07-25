@@ -130,6 +130,35 @@ python -m ai_agent_lab.cli correlation-report -o v05-correlation-report.md
 
 All demo targets use `fixture://` inputs and synthetic canary values.
 
+## Phase-2 MITRE ATLAS scans and reports
+
+ATLAS payloads are non-operational, synthetic canary simulations. Without
+`LAB_LLM_KEY`, the judge stays fully offline. Setting all three variables
+activates an OpenAI-compatible endpoint:
+
+```powershell
+$env:LAB_LLM_KEY = "<your-key>"
+$env:LAB_LLM_MODEL = "gpt-4o-mini"
+$env:LAB_LLM_BASE_URL = "https://api.openai.com"
+```
+
+Run a safe ATLAS scan and write Markdown plus JSON evidence:
+
+```powershell
+'{"attack":"AML.T0051","agent":"sql_assistant","iterations":3}' |
+  python -m ai_agent_lab scan --json
+
+# Explicit report location; JSON evidence uses the same filename stem.
+python -m ai_agent_lab scan `
+  --input '{"attack":"AML.T0051","agent":"sql_assistant","iterations":3}' `
+  --report output/atlas-demo.md --json
+```
+
+Without `--report`, ATLAS scans use
+`output/<ISO timestamp>-<attack_id>.md`. Evidence contains only the current
+safe test payload and judge result; target-agent conversation history is not
+persisted.
+
 ## LLM provider switching
 
 The IntegrationGateway-compatible `scan` command reads `LLM_PROVIDER`:

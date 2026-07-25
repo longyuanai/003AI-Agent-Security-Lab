@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 import json
 import sys
+from datetime import datetime
 from pathlib import Path
 
 import click
@@ -22,8 +23,13 @@ from ai_agent_lab.metrics import evaluate_asr, write_asr_reports
 from ai_agent_lab.multi_agent import run_offline_mcp_abuse_demo
 from ai_agent_lab.orchestrator import LabMission, build_llm_runtime
 from ai_agent_lab.report import (
+    build_json_evidence,
     build_demo_correlation_report,
+    default_report_path,
+    render_red_team_markdown,
+    write_json_evidence,
     write_correlation_markdown,
+    write_red_team_markdown,
 )
 from ai_agent_lab.runner import (
     atlas_run_to_envelope,
@@ -57,7 +63,20 @@ def cli() -> None:
     is_flag=True,
     help="Emit the IntegrationGateway JSON findings envelope.",
 )
-def scan_cmd(input_payload: str | None, json_output: bool) -> None:
+@click.option(
+    "--report",
+    "report_path",
+    type=click.Path(),
+    help=(
+        "Markdown report path. ATLAS scans default to "
+        "output/<ISO timestamp>-<attack_id>.md."
+    ),
+)
+def scan_cmd(
+    input_payload: str | None,
+    json_output: bool,
+    report_path: str | None,
+) -> None:
     """Run one adapter-compatible Agent × Attack scan."""
 
     raw = input_payload if input_payload is not None else sys.stdin.read()
@@ -77,6 +96,32 @@ def scan_cmd(input_payload: str | None, json_output: bool) -> None:
                 iterations=int(payload.get("iterations", 1)),
             )
             atlas_envelope = atlas_run_to_envelope(atlas_run)
+            generated_at_dt = datetime.now()
+            generated_at = generated_at_dt.isoformat(timespec="seconds")
+            markdown_path = (
+                Path(report_path)
+                if report_path
+                else default_report_path(
+                    atlas_run.tactic.id,
+                    generated_at=generated_at_dt,
+                )
+            )
+            evidence_path = markdown_path.with_suffix(".json")
+            evidence = build_json_evidence(
+                atlas_run,
+                atlas_envelope,
+                generated_at=generated_at,
+            )
+            write_json_evidence(evidence, evidence_path)
+            markdown = render_red_team_markdown(
+                atlas_run,
+                atlas_envelope,
+                generated_at=generated_at,
+                evidence_filename=evidence_path.name,
+            )
+            write_red_team_markdown(markdown, markdown_path)
+            atlas_envelope["summary"]["report_path"] = str(markdown_path)
+            atlas_envelope["summary"]["evidence_path"] = str(evidence_path)
         except (KeyError, TypeError, ValueError) as exc:
             atlas_envelope = {
                 "findings": [],

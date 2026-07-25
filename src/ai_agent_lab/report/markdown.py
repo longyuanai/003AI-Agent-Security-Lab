@@ -37,6 +37,8 @@ def render_red_team_markdown(
     template = Environment(
         autoescape=False,
         undefined=StrictUndefined,
+        trim_blocks=True,
+        lstrip_blocks=True,
         keep_trailing_newline=True,
     ).from_string(template_text)
     rows = []
@@ -54,7 +56,7 @@ def render_red_team_markdown(
                 "status": record.error or "completed",
             }
         )
-    return template.render(
+    rendered = template.render(
         generated_at=generated_at,
         tactic=run.tactic,
         agent=run.agent,
@@ -64,6 +66,7 @@ def render_red_team_markdown(
         rows=rows,
         evidence_filename=evidence_filename,
     )
+    return rendered.rstrip() + "\n"
 
 
 def write_red_team_markdown(markdown: str, output: str | Path) -> Path:

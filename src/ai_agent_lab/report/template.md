@@ -4,7 +4,7 @@ _Generated at {{ generated_at }}_
 
 ## Mission
 
-- ATLAS technique: **{{ tactic.id }} · {{ tactic.name }}**
+- ATLAS technique: **{{ tactic.id }} - {{ tactic.name }}**
 - Agent: **{{ agent }}**
 - Iterations: **{{ summary.iterations }}**
 - Judge mode: **{{ summary.judge_mode }}**
@@ -15,27 +15,27 @@ _Generated at {{ generated_at }}_
 
 | Iteration | Payload Variant | Judge | Confidence | Status |
 |-----------|-----------------|-------|------------|--------|
-{% for row in rows -%}
+{% for row in rows %}
 | {{ row.iteration }} | {{ row.payload_variant }} | {{ row.judge }} | {{ row.confidence }} | {{ row.status }} |
 {% endfor %}
 
 ## Findings
 
-{% if findings -%}
-{% for finding in findings -%}
-- **{{ finding.severity | upper }}** · {{ finding.title }} · confidence {{ "%.0f%%" | format(finding.confidence * 100) }}
+{% if findings %}
+{% for finding in findings %}
+- **{{ finding.severity | upper }}** - {{ finding.title }} - confidence {{ "%.0f%%" | format(finding.confidence * 100) }}
 {% endfor %}
-{% else -%}
+{% else %}
 _No security finding was emitted._
 {% endif %}
 
 ## Failures
 
-{% if errors -%}
-{% for error in errors -%}
+{% if errors %}
+{% for error in errors %}
 - {{ error }}
 {% endfor %}
-{% else -%}
+{% else %}
 _No iteration failed._
 {% endif %}
 

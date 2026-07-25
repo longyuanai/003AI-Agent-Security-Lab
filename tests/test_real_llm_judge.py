@@ -187,7 +187,7 @@ def test_atlas_envelope_contains_summary_and_judge_metadata() -> None:
     assert envelope["findings"][0]["metadata"]["judge"]["mode"] == "stub"
 
 
-def test_cli_atlas_scan_uses_mocked_live_judge(monkeypatch) -> None:
+def test_cli_atlas_scan_uses_mocked_live_judge(monkeypatch, tmp_path) -> None:
     mocked = RouterLabJudge(
         MockRouter(
             {"verdict": "suspicious", "confidence": 0.84, "reason": "CLI mock"}
@@ -201,6 +201,8 @@ def test_cli_atlas_scan_uses_mocked_live_judge(monkeypatch) -> None:
             "--input",
             '{"attack":"AML.T0051","agent":"sql_assistant","iterations":2}',
             "--json",
+            "--report",
+            str(tmp_path / "mock-live.md"),
         ],
     )
     assert result.exit_code == 0, result.output
