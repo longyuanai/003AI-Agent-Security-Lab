@@ -7,8 +7,9 @@ import os
 import time
 import urllib.request
 import uuid
+from collections.abc import Mapping
 from dataclasses import dataclass, replace
-from typing import Any, Mapping
+from typing import Any
 
 from shared_llm_core import (
     ChatChoice,
@@ -22,7 +23,6 @@ from shared_llm_core.multi_agent import (
     MissionContext,
     MultiAgentOrchestrator,
 )
-
 
 LAB_MISSION_ROLES: tuple[AgentRole, ...] = (
     AgentRole.SCOUT,

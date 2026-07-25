@@ -19,6 +19,13 @@ from ai_agent_lab.datatypes import (
     Verdict,
 )
 from ai_agent_lab.detector import Detector, HeuristicDetector, LLMDetector
+from ai_agent_lab.judge import (
+    JudgeResult,
+    LabJudge,
+    RouterLabJudge,
+    StubLabJudge,
+    build_lab_judge,
+)
 from ai_agent_lab.metrics import (
     ASRReport,
     MetricRecord,
@@ -33,23 +40,15 @@ from ai_agent_lab.multi_agent import (
     run_mcp_abuse,
     run_offline_mcp_abuse_demo,
 )
-from ai_agent_lab.judge import (
-    JudgeResult,
-    LabJudge,
-    RouterLabJudge,
-    StubLabJudge,
-    build_lab_judge,
-)
 from ai_agent_lab.orchestrator import (
+    LAB_MISSION_ROLES,
     AnthropicLLMRouter,
     FakeLLMRouter,
-    LAB_MISSION_ROLES,
     LabMission,
     LLMRuntime,
     OpenAILLMRouter,
     build_llm_runtime,
 )
-from ai_agent_lab.reporter import render_markdown
 from ai_agent_lab.report import (
     CrossScenarioReport,
     TargetCorrelation,
@@ -57,6 +56,7 @@ from ai_agent_lab.report import (
     build_demo_correlation_report,
     render_correlation_markdown,
 )
+from ai_agent_lab.reporter import render_markdown
 from ai_agent_lab.runner import (
     AtlasIterationRecord,
     AtlasRun,

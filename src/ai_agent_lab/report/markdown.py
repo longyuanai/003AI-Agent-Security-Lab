@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 from jinja2 import Environment, StrictUndefined
 
 from ai_agent_lab.runner import AtlasRun
-
 
 _TEMPLATE_PATH = Path(__file__).with_name("template.md")
 

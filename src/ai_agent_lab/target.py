@@ -22,7 +22,6 @@ from dataclasses import dataclass
 
 from ai_agent_lab.datatypes import ToolCall, Trace
 
-
 # Patterns used by the deterministic router. Kept module-level so tests
 # can introspect them and so the demo is fully reproducible.
 _READ_PATTERNS: tuple[re.Pattern[str], ...] = (

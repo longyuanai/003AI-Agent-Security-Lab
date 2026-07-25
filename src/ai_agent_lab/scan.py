@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import uuid
-from typing import Any, Mapping
+from collections.abc import Mapping
+from typing import Any
 
 from ai_agent_lab.attacks import Scenario, built_in_scenarios
 from ai_agent_lab.detector import Detector
 from ai_agent_lab.target import TargetAgent, built_in_targets
-
 
 _AGENT_ALIASES: dict[str, str] = {
     "sql_assistant": "sqli-helper",

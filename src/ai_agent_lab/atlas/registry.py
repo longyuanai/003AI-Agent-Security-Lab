@@ -6,7 +6,6 @@ from collections.abc import Iterable
 
 from ai_agent_lab.atlas import ATLASTactic
 
-
 ATLAS_TACTICS: dict[str, ATLASTactic] = {}
 
 
@@ -43,7 +42,6 @@ from ai_agent_lab.atlas.aml_t0048 import TACTICS as AML_T0048_TACTICS  # noqa: E
 from ai_agent_lab.atlas.aml_t0050 import TACTICS as AML_T0050_TACTICS  # noqa: E402
 from ai_agent_lab.atlas.aml_t0051 import TACTICS as AML_T0051_TACTICS  # noqa: E402
 from ai_agent_lab.atlas.aml_t0054 import TACTICS as AML_T0054_TACTICS  # noqa: E402
-
 
 for _builtin_tactics in (
     AML_T0020_TACTICS,

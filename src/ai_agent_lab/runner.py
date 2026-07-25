@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 
 from ai_agent_lab.atlas import ATLASTactic, get_tactic
 from ai_agent_lab.attacks import Scenario, built_in_scenarios
-from ai_agent_lab.datatypes import Detection, RunResult, Trace, Verdict
+from ai_agent_lab.datatypes import RunResult, Trace, Verdict
 from ai_agent_lab.detector import Detector, HeuristicDetector, LLMDetector, is_detected
 from ai_agent_lab.judge import JudgeResult, LabJudge, build_lab_judge
 from ai_agent_lab.target import TargetAgent, built_in_targets

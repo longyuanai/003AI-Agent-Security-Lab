@@ -21,10 +21,9 @@ import sys
 import tempfile
 import textwrap
 import time
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Mapping
-
 
 _BLOCKED_MARKER = "SANDBOX_BLOCKED:"
 _PLATFORM_ENV = ("SYSTEMROOT", "WINDIR", "COMSPEC", "TEMP", "TMP")

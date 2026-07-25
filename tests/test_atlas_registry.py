@@ -10,7 +10,6 @@ import pytest
 
 from ai_agent_lab.atlas import (
     ATLAS_TACTICS,
-    ATLASTactic,
     get_tactic,
     list_tactics,
 )

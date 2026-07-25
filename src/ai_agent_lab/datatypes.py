@@ -8,9 +8,20 @@ Verdict   - enum: safe / suspicious / malicious
 
 from __future__ import annotations
 
+import uuid
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
+
+
+def new_finding_id() -> str:
+    """Fresh Finding id.
+
+    `shared_llm_core.Finding` auto-generates one when `id` is empty; calling
+    this keeps the id visible at the construction site instead.
+    """
+
+    return str(uuid.uuid4())
 
 
 class Verdict(str, Enum):

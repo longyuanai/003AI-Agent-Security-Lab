@@ -2,16 +2,16 @@
 
 from __future__ import annotations
 
-from ai_agent_lab.v05_compat import (
+from shared_llm_core import (
     Finding,
     FindingSeverity,
     FindingSource,
     Rule,
     RuleContext,
     RuleRegistry,
-    new_finding_id,
 )
 
+from ai_agent_lab.datatypes import new_finding_id
 
 RULE_ID = "003-mcp-server-abuse"
 

@@ -22,7 +22,6 @@ from typing import Any, Protocol
 
 from ai_agent_lab.datatypes import Detection, Trace, Verdict
 
-
 # --------------------------------------------------------------------- #
 # Heuristic rules                                                       #
 # --------------------------------------------------------------------- #
@@ -376,19 +375,20 @@ class Detector:
 
     def detect(self, trace: Trace) -> Detection:
         h = self.heuristic.detect(trace)
-        l = self.llm.detect(trace) if self.llm else None
+        llm_detection = self.llm.detect(trace) if self.llm else None
 
         # Final verdict = max(heuristic, llm).
         combined = h.verdict
         methods: list[str] = [h.detector]
-        if l is not None:
-            combined = _max_verdict(combined, l.verdict)
-            methods.append(l.detector)
+        if llm_detection is not None:
+            combined = _max_verdict(combined, llm_detection.verdict)
+            methods.append(llm_detection.detector)
 
         evidence_parts = [f"{h.detector}={h.verdict.value}: {h.evidence}".strip(": ")]
-        if l is not None:
+        if llm_detection is not None:
             evidence_parts.append(
-                f"{l.detector}={l.verdict.value}: {l.evidence}".strip(": ")
+                f"{llm_detection.detector}={llm_detection.verdict.value}: "
+                f"{llm_detection.evidence}".strip(": ")
             )
         evidence = " | ".join(p for p in evidence_parts if p)
 
@@ -398,7 +398,7 @@ class Detector:
             evidence=evidence,
             raw={
                 "heuristic": h.to_dict(),
-                "llm": l.to_dict() if l else None,
+                "llm": llm_detection.to_dict() if llm_detection else None,
                 "methods": methods,
             },
         )

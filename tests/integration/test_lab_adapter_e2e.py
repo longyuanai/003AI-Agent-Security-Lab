@@ -15,7 +15,6 @@ from pathlib import Path
 
 import pytest
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 SUITE_ROOT = PROJECT_ROOT.parent
 INTEGRATION_ROOT = SUITE_ROOT / "000shared-integration"
@@ -25,6 +24,12 @@ GATEWAY_URL = "http://127.0.0.1:18080"
 
 @pytest.fixture(scope="module")
 def gateway_url() -> Iterator[str]:
+    if not (INTEGRATION_ROOT / "src").is_dir():
+        pytest.skip(
+            "sibling checkout 000shared-integration is not present; "
+            "see README for the suite layout"
+        )
+
     with socket.socket() as probe:
         try:
             probe.bind(("127.0.0.1", 18080))

@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import json
 import time
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Iterable
 
 from ai_agent_lab.attacks import Scenario, built_in_scenarios
 from ai_agent_lab.detector import Detector
@@ -247,10 +247,7 @@ def _detection_modes(raw: dict[str, object]) -> tuple[str, ...]:
     heuristic = raw.get("heuristic")
     if isinstance(heuristic, dict):
         heuristic_raw = heuristic.get("raw")
-        if isinstance(heuristic_raw, dict):
-            modes = heuristic_raw.get("modes", {})
-        else:
-            modes = {}
+        modes = heuristic_raw.get("modes", {}) if isinstance(heuristic_raw, dict) else {}
     else:
         modes = raw.get("modes", {})
     if not isinstance(modes, dict):

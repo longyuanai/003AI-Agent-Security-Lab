@@ -2,16 +2,17 @@
 
 from __future__ import annotations
 
+from shared_llm_core.multi_agent import (
+    AgentRole,
+    MissionContext,
+    MultiAgentOrchestrator,
+)
+
 from ai_agent_lab.multi_agent import (
     MCP_ABUSE_ROLES,
     build_mcp_abuse_mission,
     run_mcp_abuse,
     run_offline_mcp_abuse_demo,
-)
-from ai_agent_lab.v05_compat import (
-    AgentRole,
-    MissionContext,
-    MultiAgentOrchestrator,
 )
 
 
@@ -55,8 +56,10 @@ def test_scratchpad_is_append_only_and_visible_to_later_roles(stub_router):
     run_mcp_abuse(MultiAgentOrchestrator(router), mission)
     first_request = router.calls[0][1]
     second_request = router.calls[1][1]
-    assert "seed evidence" in first_request.messages[1].content
-    assert "scout:" in second_request.messages[1].content
+    # The orchestrator packs role, task, scratchpad and inputs into one
+    # user message.
+    assert "seed evidence" in first_request.messages[0].content
+    assert "[scout]" in second_request.messages[0].content
     assert mission.scratchpad == ("seed evidence",)
 
 

@@ -7,11 +7,11 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
 from click.testing import CliRunner
 from shared_llm_core.multi_agent import AgentResult, AgentRole
 
 from ai_agent_lab.cli import cli
-
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SUITE_ROOT = PROJECT_ROOT.parent
@@ -100,6 +100,11 @@ def test_scan_reads_payload_from_stdin() -> None:
 
 def test_json_subprocess_lab_adapter_end_to_end(monkeypatch) -> None:
     integration_src = SUITE_ROOT / "000shared-integration" / "src"
+    if not integration_src.is_dir():
+        pytest.skip(
+            "sibling checkout 000shared-integration is not present; "
+            "see README for the suite layout"
+        )
     monkeypatch.syspath_prepend(str(integration_src))
     monkeypatch.setenv("LLM_PROVIDER", "fake")
 
