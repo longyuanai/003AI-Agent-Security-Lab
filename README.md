@@ -45,15 +45,39 @@ attack payload ──► Target Agent (read_file / http_fetch / exec_shell)
   `tool_misuse`, `data_exfiltration`, and `privilege_escalation`.
 - **Heuristic detector is the default**. LLM detector is opt-in via the
   shared-llm-core router; when none is reachable we still get a useful report.
+- **A benign corpus scores the detector honestly.** 13 near-miss samples that
+  mention the same tools, paths and SQL as the attacks but only describe them.
+  Detection rate measured against attacks alone is unfalsifiable, so the report
+  carries precision and false-positive rate next to recall.
 
 ## Install
 
-```bash
-cd 003AI-Agent-Security-Lab   # (or whatever the parent path is)
-poetry install
+The suite expects sibling checkouts, because `shared-llm-core` is consumed as a
+local path dependency:
+
+```
+<parent>/
+├── 000shared-llm-core/          # required
+├── 000shared-integration/       # optional; gateway tests skip without it
+└── 003AI-Agent-Security-Lab/    # this repo
 ```
 
-(Editable install is preferred: `pip install -e .` works too.)
+```bash
+git clone https://github.com/longyuanai/000shared-llm-core.git
+git clone https://github.com/longyuanai/003AI-Agent-Security-Lab.git
+
+cd 003AI-Agent-Security-Lab
+poetry install          # or: pip install ../000shared-llm-core && pip install -e .
+```
+
+`openai` is an optional extra, needed only for `LLM_PROVIDER=openai`:
+
+```bash
+pip install -e ".[openai]"
+```
+
+The test suite adds `src/` to the path itself, so `pytest` also works straight
+from a checkout without installing anything.
 
 ## Run the demo
 
@@ -117,6 +141,22 @@ python -m ai_agent_lab.cli metrics \
 Attack success means the vulnerable Agent emitted a non-empty tool call.
 Detector verdict and latency are recorded independently in each result row.
 
+The same report scores the detector against both corpora:
+
+```
+## Detection Quality
+
+_Alarm threshold: `suspicious` or higher._
+
+- Detection rate (recall): **100.0%** (10/10 attacks)
+- Precision: **100.0%**
+- False-positive rate: **0.0%** (0/13 benign inputs)
+- F1: **1.000**
+```
+
+A false positive is listed with the benign sample that tripped it and the rule
+that matched, so an over-broad rule is immediately attributable.
+
 ## v0.5 multi-agent scenarios
 
 The v0.5 lab adds an offline MCP abuse role pipeline, five RuleEngine-backed
@@ -152,6 +192,16 @@ Run a safe ATLAS scan and write Markdown plus JSON evidence:
 python -m ai_agent_lab scan `
   --input '{"attack":"AML.T0051","agent":"sql_assistant","iterations":3}' `
   --report output/atlas-demo.md --json
+```
+
+Payload variants are chosen at random. Pass `--seed` (or `"seed"` in the JSON
+payload) to make a run reproducible — every report states whether it can be
+regenerated and with which seed:
+
+```powershell
+python -m ai_agent_lab scan `
+  --input '{"attack":"AML.T0051","agent":"sql_assistant","iterations":3}' `
+  --seed 42 --json
 ```
 
 Without `--report`, ATLAS scans use

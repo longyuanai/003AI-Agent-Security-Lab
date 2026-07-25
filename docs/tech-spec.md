@@ -416,18 +416,21 @@ ai-agent-lab scan --input '{...}' --report output/2026-07-25-brute.md
 
 Codex 完工后跑:
 
-```powershell
-& 'C:\Users\15072\AppData\Local\Programs\Python\Python314\python.exe' `
-  -m pytest tests/ `
-  --basetemp=C:/pytest-tmp/003-phase2 `
-  -o addopts= `
-  -q --tb=short
+```bash
+# 与 CI 同一套命令(.github/workflows/ci.yml),不要写死解释器路径
+ruff check src tests
+pytest -q
 
-& 'C:\Users\15072\AppData\Local\Programs\Python\Python314\python.exe' `
-  -m ai_agent_lab scan --input '{"attack":"AML.T0051","agent":"...","iterations":3}' --json
+python -m ai_agent_lab scan \
+  --input '{"attack":"AML.T0051","agent":"sql_assistant","iterations":3}' \
+  --seed 42 --json
 ```
 
-预期:≥ 195 passed(原 170 + Phase-2 新增 25);CLI envelope 仍是 `{"findings": [...], "summary": {...}}`。
+预期:全绿(当前 239 passed);缺少 `000shared-integration` 兄弟仓时,相关
+4 个 gateway 用例会 skip 而不是 error。CLI envelope 仍是
+`{"findings": [...], "summary": {...}}`。
+
+> 前置条件:`000shared-llm-core` 必须作为同级目录 checkout,见 README「Install」。
 
 ---
 
