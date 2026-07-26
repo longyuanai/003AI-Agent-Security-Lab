@@ -128,6 +128,17 @@ This is deterministic application-level isolation for the lab. On Windows,
 timeout handling kills the direct subprocess; it is not a kernel security
 boundary or a replacement for the Docker/gVisor design in the technical spec.
 
+**What it stops**: writes outside the temp dir (including moving a file out via
+`os.rename` / `os.replace` / `shutil.move`), socket creation through both
+`socket` and the low-level `_socket` module, non-allowlisted environment
+variables, and runaway execution.
+
+**What it does not stop**, because in-process monkeypatching cannot reach them:
+a spawned child process does not inherit the guards, and `ctypes` calls into C
+underneath them. Both are pinned by tests in `tests/test_sandbox.py` so the
+boundary stays documented rather than assumed. Do not use this to contain
+untrusted code.
+
 ## ASR evaluation
 
 Run all 50 Agent/Attack combinations and write both report formats:
