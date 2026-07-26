@@ -122,15 +122,33 @@ class RouterLabJudge:
         )
         response = self._router.chat(TaskTier.CHEAP, request)
         raw_text = response.choices[0].message.content
-        parsed = json.loads(_strip_json_fence(raw_text))
+
+        # A model that answers in prose, adds a closing sentence, or reports
+        # `confidence: 1.5` is behaving normally, not exceptionally. Treat a
+        # malformed answer as an inconclusive judgement rather than raising --
+        # a transport error still propagates so the runner can record it.
+        parsed = _parse_judge_payload(raw_text)
+        if parsed is None:
+            return JudgeResult(
+                verdict=Verdict.SUSPICIOUS,
+                confidence=0.5,
+                reason=f"judge returned unparseable output: {raw_text[:160]!r}",
+                mode=self.mode,
+                raw={
+                    "id": response.id,
+                    "model": response.model,
+                    "unparsed": raw_text,
+                    "usage": response.usage.model_dump(),
+                },
+            )
+
         try:
             verdict = Verdict(str(parsed.get("verdict", "suspicious")).lower())
         except ValueError:
             verdict = Verdict.SUSPICIOUS
-        confidence = float(parsed.get("confidence", 0.5))
         return JudgeResult(
             verdict=verdict,
-            confidence=confidence,
+            confidence=_coerce_confidence(parsed.get("confidence")),
             reason=str(parsed.get("reason", "")),
             mode=self.mode,
             raw={
@@ -197,3 +215,71 @@ def _strip_json_fence(text: str) -> str:
     if stripped.startswith("json"):
         stripped = stripped[4:]
     return stripped.strip()
+
+
+def _parse_judge_payload(raw_text: str) -> dict[str, Any] | None:
+    """Best-effort extraction of the JSON object from a judge reply.
+
+    Handles the three ways a model routinely misses "JSON only": a Markdown
+    fence, a trailing sentence after the object, and a leading one before it.
+    Returns None when nothing object-shaped can be recovered.
+    """
+
+    if not isinstance(raw_text, str) or not raw_text.strip():
+        return None
+
+    candidate = _strip_json_fence(raw_text)
+    try:
+        parsed = json.loads(candidate)
+    except ValueError:
+        parsed = None
+    if isinstance(parsed, dict):
+        return parsed
+
+    # Fall back to the first balanced {...} span, ignoring braces inside
+    # strings so a reason like "use {} carefully" cannot truncate the scan.
+    start = candidate.find("{")
+    if start == -1:
+        return None
+    depth = 0
+    in_string = False
+    escaped = False
+    for index in range(start, len(candidate)):
+        char = candidate[index]
+        if in_string:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                in_string = False
+            continue
+        if char == '"':
+            in_string = True
+        elif char == "{":
+            depth += 1
+        elif char == "}":
+            depth -= 1
+            if depth == 0:
+                try:
+                    recovered = json.loads(candidate[start : index + 1])
+                except ValueError:
+                    return None
+                return recovered if isinstance(recovered, dict) else None
+    return None
+
+
+def _coerce_confidence(value: Any, default: float = 0.5) -> float:
+    """Clamp a model-reported confidence into [0, 1].
+
+    `JudgeResult` rejects out-of-range values, so an over-confident `1.5` used
+    to abort the whole iteration instead of being read as "very sure".
+    """
+
+    try:
+        confidence = float(value)
+    except (TypeError, ValueError):
+        return default
+    if confidence != confidence:  # NaN
+        return default
+    return min(1.0, max(0.0, confidence))

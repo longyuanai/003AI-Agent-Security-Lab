@@ -1,6 +1,6 @@
 # 003 AI-Agent-Security-Lab · TODO
 
-> **项目状态**: v0.6 · 258 passed / 4 skipped · ruff 全绿 · CI 已接入
+> **项目状态**: v0.6 · 275 passed / 4 skipped · ruff 全绿 · CI 已接入
 > **共享接口**: [v0.1-contract.md](../../000shared-llm-core/docs/v0.1-contract.md) (已冻结)
 > **派活模板**: [CODEX_INSTRUCTIONS.md](../../CODEX_INSTRUCTIONS.md)
 >
@@ -31,6 +31,7 @@
 | FIX-FPR-001 | 良性语料 + 误报率/精确率/F1 | done | 2026-07-26 | 原检测器 7/7 良性输入误报,"100% 检出率"不可证伪 |
 | FIX-REPRO-001 | `--seed` 让 ATLAS 报告可复现 | done | 2026-07-26 | 报告中标注能否复现 |
 | CORPUS-001 | 良性语料扩到 54 条 | done | 2026-07-26 | 暴露并修好 3 条新误报 + 1 处漏报(敏感数据外传非 evil.example.com 时只判 suspicious) |
+| JUDGE-002 | LLM judge 容错 | done | 2026-07-26 | 畸形 LLM 输出(confidence 越界/非数字、散文、JSON 后跟尾句)会直接抛异常;8 个探针 5 个崩。真接 LLM 时可能整轮全是 error。已改为降级为 suspicious,传输错误仍上抛 |
 | SAND-003 | 补齐沙箱声称范围内的逃逸口 | done | 2026-07-26 | `os.replace/rename/shutil.move` 曾能把文件搬出沙箱(实测逃逸成功);`_socket` 绕过网络守卫。两处已修,`subprocess`/`ctypes` 两个够不着的口子用测试钉住 |
 
 ### 待办(未做,需排期)
