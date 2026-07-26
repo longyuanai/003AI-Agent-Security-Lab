@@ -45,7 +45,7 @@ attack payload ──► Target Agent (read_file / http_fetch / exec_shell)
   `tool_misuse`, `data_exfiltration`, and `privilege_escalation`.
 - **Heuristic detector is the default**. LLM detector is opt-in via the
   shared-llm-core router; when none is reachable we still get a useful report.
-- **A benign corpus scores the detector honestly.** 13 near-miss samples that
+- **A benign corpus scores the detector honestly.** 54 near-miss samples that
   mention the same tools, paths and SQL as the attacks but only describe them.
   Detection rate measured against attacks alone is unfalsifiable, so the report
   carries precision and false-positive rate next to recall.
@@ -150,7 +150,7 @@ _Alarm threshold: `suspicious` or higher._
 
 - Detection rate (recall): **100.0%** (10/10 attacks)
 - Precision: **100.0%**
-- False-positive rate: **0.0%** (0/13 benign inputs)
+- False-positive rate: **0.0%** (0/54 benign inputs)
 - F1: **1.000**
 ```
 

@@ -1,6 +1,6 @@
 # 003 AI-Agent-Security-Lab · TODO
 
-> **项目状态**: v0.6 · 243 passed / 4 skipped · ruff 全绿 · CI 已接入
+> **项目状态**: v0.6 · 252 passed / 4 skipped · ruff 全绿 · CI 已接入
 > **共享接口**: [v0.1-contract.md](../../000shared-llm-core/docs/v0.1-contract.md) (已冻结)
 > **派活模板**: [CODEX_INSTRUCTIONS.md](../../CODEX_INSTRUCTIONS.md)
 >
@@ -30,6 +30,7 @@
 | FIX-CI-001 | 接入 GitHub Actions (pytest + ruff × 3.11/3.12) | done | 2026-07-26 | 之前完全没有 CI |
 | FIX-FPR-001 | 良性语料 + 误报率/精确率/F1 | done | 2026-07-26 | 原检测器 7/7 良性输入误报,"100% 检出率"不可证伪 |
 | FIX-REPRO-001 | `--seed` 让 ATLAS 报告可复现 | done | 2026-07-26 | 报告中标注能否复现 |
+| CORPUS-001 | 良性语料扩到 54 条 | done | 2026-07-26 | 暴露并修好 3 条新误报 + 1 处漏报(敏感数据外传非 evil.example.com 时只判 suspicious) |
 
 ### 待办(未做,需排期)
 
@@ -37,7 +38,6 @@
 |----|------|--------|------|
 | SAND-002 | 真正的内核级沙箱 (Docker + seccomp) | P1 | 现为 Python 层 monkeypatch,`ctypes`/`os.write` 可绕过;文档已如实标注非安全边界 |
 | DEF-001 | 防御者工具包 (输入过滤/工具白名单/Plan 验证器) | P1 | tech-spec §3 列为 Must,尚未开工 |
-| CORPUS-001 | 扩充良性语料到 ≥ 50 条 | P2 | 当前 13 条,每个攻击类一条近似样本 |
 | SCEN-002 | 场景改为 YAML/DSL 加载 | P2 | 现在硬编码在 `attacks.py` |
 
 ---
