@@ -10,8 +10,26 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass, field
+from datetime import datetime
 from enum import Enum
 from typing import Any
+
+
+def report_now() -> datetime:
+    """Current local time, with its UTC offset attached.
+
+    Reports are evidence, and `datetime.now()` renders as `2026-07-26T12:00:00`
+    with no zone -- unreadable across machines and unusable for correlating a
+    finding with anything else.
+    """
+
+    return datetime.now().astimezone()
+
+
+def report_timestamp() -> str:
+    """`report_now()` as a second-resolution ISO-8601 string with offset."""
+
+    return report_now().isoformat(timespec="seconds")
 
 
 def new_finding_id() -> str:

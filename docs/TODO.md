@@ -1,8 +1,11 @@
-# 003 AI-Agent-Security-Lab · v0.1 TODO
+# 003 AI-Agent-Security-Lab · TODO
 
-> **项目状态**: v0.1 P1 四项完成 ✅ (114/114 tests passing)
+> **项目状态**: v0.6 · 243 passed / 4 skipped · ruff 全绿 · CI 已接入
 > **共享接口**: [v0.1-contract.md](../../000shared-llm-core/docs/v0.1-contract.md) (已冻结)
 > **派活模板**: [CODEX_INSTRUCTIONS.md](../../CODEX_INSTRUCTIONS.md)
+>
+> 跑测试前必须先 checkout 同级的 `000shared-llm-core`,见 README「Install」。
+> 缺 `000shared-integration` 时,4 个 gateway 用例会 skip(不是失败)。
 
 ---
 
@@ -14,6 +17,28 @@
 | ATTACK-001 | 攻击场景扩到 10 类 (加间接注入、token 窃取、shell escape 等) | done | 2026-07-24 | 2026-07-24 | 10 detector-backed classes |
 | SAND-001 | 沙箱化 (Docker 隔离 + syscall 白名单) | done | 2026-07-24 | 2026-07-24 | stdlib subprocess guard |
 | METRIC-001 | ASR (Attack Success Rate) 评估报告 | done | 2026-07-24 | 2026-07-24 | Markdown + JSON, 50 combos |
+
+---
+
+## P0 · 工程健康度整改(2026-07-26,见 AUDIT/003-S2.md)
+
+| ID | 任务 | 状态 | 完成日 | 备注 |
+|----|------|------|-------|------|
+| FIX-PKG-001 | 修复 pyproject,让 `pip install -e .` 能装上 | done | 2026-07-26 | `[project]` 缺 name,poetry-core 直接拒绝;曾导致 23 个测试文件全部无法收集 |
+| FIX-IMPORT-001 | `__init__.py` 改惰性导出,离线核心零依赖可用 | done | 2026-07-26 | PEP 562 `__getattr__` |
+| FIX-DUP-001 | 删除 `v05_compat.py`,统一到 shared-llm-core | done | 2026-07-26 | 共享库早已是 v0.5.0,该模块 351 行全是重复;顺带修好 MCP demo 角色错配 |
+| FIX-CI-001 | 接入 GitHub Actions (pytest + ruff × 3.11/3.12) | done | 2026-07-26 | 之前完全没有 CI |
+| FIX-FPR-001 | 良性语料 + 误报率/精确率/F1 | done | 2026-07-26 | 原检测器 7/7 良性输入误报,"100% 检出率"不可证伪 |
+| FIX-REPRO-001 | `--seed` 让 ATLAS 报告可复现 | done | 2026-07-26 | 报告中标注能否复现 |
+
+### 待办(未做,需排期)
+
+| ID | 任务 | 优先级 | 说明 |
+|----|------|--------|------|
+| SAND-002 | 真正的内核级沙箱 (Docker + seccomp) | P1 | 现为 Python 层 monkeypatch,`ctypes`/`os.write` 可绕过;文档已如实标注非安全边界 |
+| DEF-001 | 防御者工具包 (输入过滤/工具白名单/Plan 验证器) | P1 | tech-spec §3 列为 Must,尚未开工 |
+| CORPUS-001 | 扩充良性语料到 ≥ 50 条 | P2 | 当前 13 条,每个攻击类一条近似样本 |
+| SCEN-002 | 场景改为 YAML/DSL 加载 | P2 | 现在硬编码在 `attacks.py` |
 
 ---
 

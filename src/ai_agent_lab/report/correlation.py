@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import datetime
 from pathlib import Path
 
 from shared_llm_core import (
@@ -13,6 +12,7 @@ from shared_llm_core import (
     FindingSeverity,
 )
 
+from ai_agent_lab.datatypes import report_timestamp
 from ai_agent_lab.scenarios import evaluate_demo_scenarios
 
 _SEVERITY_RANK = {
@@ -91,7 +91,7 @@ def render_correlation_markdown(
     *,
     generated_at: str | None = None,
 ) -> str:
-    when = generated_at or datetime.now().isoformat(timespec="seconds")
+    when = generated_at or report_timestamp()
     lines = [
         "# AI Agent Security Lab · Cross-Scenario Correlation Report",
         "",

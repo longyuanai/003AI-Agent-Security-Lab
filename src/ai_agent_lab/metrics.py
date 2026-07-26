@@ -16,11 +16,10 @@ import json
 import time
 from collections.abc import Iterable
 from dataclasses import dataclass, field
-from datetime import datetime
 from pathlib import Path
 
 from ai_agent_lab.attacks import BenignSample, Scenario, benign_corpus, built_in_scenarios
-from ai_agent_lab.datatypes import ToolCall, Trace, Verdict
+from ai_agent_lab.datatypes import ToolCall, Trace, Verdict, report_timestamp
 from ai_agent_lab.detector import Detector, is_detected
 from ai_agent_lab.target import TargetAgent, built_in_targets
 
@@ -319,7 +318,7 @@ def render_asr_markdown(
 ) -> str:
     """Render aggregate ASR views and all evaluation records as Markdown."""
 
-    when = generated_at or datetime.now().isoformat(timespec="seconds")
+    when = generated_at or report_timestamp()
     summary = report.summary
     lines = [
         "# AI Agent Security Lab ASR Report",

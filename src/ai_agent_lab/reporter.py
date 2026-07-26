@@ -6,9 +6,7 @@ raw trace + evidence.
 
 from __future__ import annotations
 
-from datetime import datetime
-
-from ai_agent_lab.datatypes import RunResult
+from ai_agent_lab.datatypes import RunResult, report_timestamp
 
 
 def render_markdown(
@@ -18,7 +16,7 @@ def render_markdown(
     generated_at: str | None = None,
 ) -> str:
     """Render the lab results into a Markdown report."""
-    when = generated_at or datetime.now().isoformat(timespec="seconds")
+    when = generated_at or report_timestamp()
 
     lines: list[str] = []
     lines.append("# AI Agent Security Lab Report")

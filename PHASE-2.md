@@ -1,8 +1,12 @@
 # 003AI Agent安全靶场 · Phase-2 计划
 
 > **本仓角色**: AI Agent 安全性测试靶场。注入攻击模拟(indirect prompt injection / jailbreak / tool abuse),评估目标 agent 的稳健性,产出风险 Finding。
-> **当前状态**: v0.6 §15 CLI Envelope 已实现,S4 worker 4 件套全绿,C 绿。
-> **下一阶段**: v0.6+ 真实 LLM-as-judge + Mitre ATLAS 模板库 + 红队报告导出。
+> **当前状态**: v0.6 · Hook A/B/C 全部落地 · 243 passed / 4 skipped · ruff 全绿 · CI 已接入。
+> **下一阶段**: v1.0 多模型对比 + 防御者工具包 (tech-spec §3 Must,尚未开工)。
+>
+> 2026-07-26 补充:完成一轮工程健康度整改,详见 [AUDIT/003-S2.md](AUDIT/003-S2.md)。
+> 整改前仓库实际处于「装不上 / 测试一条都跑不起来」状态,且检测器对良性输入
+> 7/7 误报,「100% 检出率」不可证伪。
 
 ---
 

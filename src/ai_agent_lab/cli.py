@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import json
 import sys
-from datetime import datetime
 from pathlib import Path
 
 import click
@@ -18,6 +17,7 @@ from rich.console import Console
 
 from ai_agent_lab import __version__
 from ai_agent_lab.attacks import built_in_scenarios, get_scenario
+from ai_agent_lab.datatypes import report_now
 from ai_agent_lab.metrics import evaluate_asr, write_asr_reports
 from ai_agent_lab.multi_agent import run_offline_mcp_abuse_demo
 from ai_agent_lab.orchestrator import LabMission, build_llm_runtime
@@ -112,7 +112,7 @@ def scan_cmd(
                 seed=seed,
             )
             atlas_envelope = atlas_run_to_envelope(atlas_run)
-            generated_at_dt = datetime.now()
+            generated_at_dt = report_now()
             generated_at = generated_at_dt.isoformat(timespec="seconds")
             markdown_path = (
                 Path(report_path)
