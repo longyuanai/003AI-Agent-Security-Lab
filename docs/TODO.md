@@ -34,13 +34,33 @@
 | JUDGE-002 | LLM judge 容错 | done | 2026-07-26 | 畸形 LLM 输出(confidence 越界/非数字、散文、JSON 后跟尾句)会直接抛异常;8 个探针 5 个崩。真接 LLM 时可能整轮全是 error。已改为降级为 suspicious,传输错误仍上抛 |
 | SAND-003 | 补齐沙箱声称范围内的逃逸口 | done | 2026-07-26 | `os.replace/rename/shutil.move` 曾能把文件搬出沙箱(实测逃逸成功);`_socket` 绕过网络守卫。两处已修,`subprocess`/`ctypes` 两个够不着的口子用测试钉住 |
 
+### v0.7 派活(2026-07-26 拟)
+
+差距分析: [SPEC-GAP-ANALYSIS.md](SPEC-GAP-ANALYSIS.md) · 可直接复制的派活单: [dispatches/v07-tickets.md](dispatches/v07-tickets.md)
+
+| ID | 任务 | 优先级 | 依赖 |
+|----|------|--------|------|
+| SPEC-001 | 修正 tech-spec 5 处过期/矛盾(含 CODEX_INSTRUCTIONS 指错契约版本) | P0 | 无,**阻塞其余全部** |
+| DEF-001 | Defender Toolkit 四件套 | P0 | SPEC-001 |
+| ATTACK-002 | 补 Memory Poison / Plan Hijack / Model DoS 三大攻击类 | P1 | 可与 DEF-001 并行 |
+| METRIC-002 | Defense Coverage / Task Utility / 真 Detection Latency / Cost | P1 | DEF-001 |
+| SCEN-E2E-001 | 跑通 tech-spec §12 旗舰剧本(端到端验收) | P1 | DEF-001 + METRIC-002 |
+| REMEDIATION-001 | Scenario 加 remediation,报告输出修复建议 | P2 | 无 |
+| OWASP-001 | Scenario 加 owasp_ids,让覆盖率可计算 | P2 | 无 |
+| REPRO-001 | CI 加「同 seed 跑两次 diff 为空」 | P2 | 无 |
+| CI-002 | CI 加 checkout 000shared-integration,4 个 skip 用例真跑起来 | P2 | 无 |
+
+> ⚠️ 派活时**必须**把 SPEC-GAP-ANALYSIS §6 的三条护栏抄进约束段:
+> 新攻击类必须配良性近似样本、用判别式不用裸关键词、不得为压 FPR 削弱强信号。
+
+---
+
 ### 待办(未做,需排期)
 
 | ID | 任务 | 优先级 | 说明 |
 |----|------|--------|------|
-| SAND-002 | 真正的内核级沙箱 (Docker + seccomp) | P1 | 声称范围内的口子已补(见 SAND-003)。剩余 `subprocess` 子进程 / `ctypes` 直调 C 是进程内 monkeypatch 原理上够不着的,已有测试钉住行为;真要挡住必须上 OS 级边界 |
-| DEF-001 | 防御者工具包 (输入过滤/工具白名单/Plan 验证器) | P1 | tech-spec §3 列为 Must,尚未开工 |
-| SCEN-002 | 场景改为 YAML/DSL 加载 | P2 | 现在硬编码在 `attacks.py` |
+| SAND-002 | 真正的内核级沙箱 (Docker + seccomp) | P1 | 声称范围内的口子已补(见 SAND-003)。剩余 `subprocess` 子进程 / `ctypes` 直调 C 是进程内 monkeypatch 原理上够不着的,已有测试钉住行为;真要挡住必须上 OS 级边界。**注**:当前威胁模型是自写的合成 payload,不是不受信任代码,所以优先级低于 DEF-001 |
+| SCEN-002 | 场景改为 YAML/DSL 加载 | P2 | 现在硬编码在 `attacks.py`。注意 tech-spec §5.3 声称是 YAML DSL 而 §13 实施指令是硬编码 Python —— 方案自相矛盾,SPEC-001 会先裁定走哪条 |
 
 ---
 
