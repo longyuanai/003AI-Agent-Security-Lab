@@ -76,7 +76,21 @@
 
 ---
 
-## DEF-001 · Defender Toolkit(关键路径)← **从这里开始派**
+## ~~DEF-001~~ · Defender Toolkit ✅ 已完成 2026-07-26
+
+> 已实现:`src/ai_agent_lab/defender/`(policy / components / pipeline)+ CLI `defend`
+> + 40 个测试。Defense Coverage 10/10,Task Utility 52/54。
+>
+> ⚠️ **本单原验收条件「benign_corpus() 全 54 条放行」是错的,已作废。**
+> 实测有 2 条会被拦,且**应当被拦**:脆弱 Agent 把良性提问路由成了 `exec_shell`
+> 命令、把相对导入路由成了工作区逃逸。要凑到 54/54 只能放宽策略(允许生成代码
+> 调特权函数、允许读工作区外文件)—— 那正是护栏 §6.3 禁止的事。
+> 正确的验收是:**Defense Coverage = 100%,Task Utility 报实测值并说明每一条
+> 被拦的归因**。
+>
+> **下一张可派的是 `ATTACK-002`(无阻塞)或 `METRIC-002`(现在解锁了)。**
+
+<details><summary>原派活单(存档)</summary>
 
 ```
 [DEF-001] 003 AI-Agent-Security-Lab · 实现 Defender Toolkit 四件套
@@ -140,9 +154,11 @@
 - [ ] ruff check src tests 全绿
 ```
 
+</details>
+
 ---
 
-## ATTACK-002 · 补齐缺失的 3 大攻击类(可与 DEF-001 并行)
+## ATTACK-002 · 补齐缺失的 3 大攻击类 ← **可立即派**
 
 ```
 [ATTACK-002] 003 AI-Agent-Security-Lab · 补 Memory Poison / Plan Hijack / Model DoS

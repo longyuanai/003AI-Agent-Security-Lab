@@ -434,6 +434,90 @@ def multi_agent_demo_cmd() -> None:
     console.print(f"[green]{run.verdict}[/green]")
 
 
+@cli.command("defend")
+@click.option(
+    "--scenario",
+    "-s",
+    default="demo",
+    show_default=True,
+    help="Scenario name, or 'demo' for all built-in attacks.",
+)
+@click.option(
+    "--benign/--no-benign",
+    "include_benign",
+    default=True,
+    show_default=True,
+    help="Also run the benign corpus to measure task utility.",
+)
+def defend_cmd(scenario: str, include_benign: bool) -> None:
+    """Run the Defender Toolkit over the attack and benign corpora."""
+
+    from ai_agent_lab.attacks import benign_corpus
+    from ai_agent_lab.defender import DefenderPipeline
+    from ai_agent_lab.target import TargetAgent
+
+    pipeline = DefenderPipeline()
+    target = TargetAgent()
+    scenarios = (
+        built_in_scenarios() if scenario == "demo" else [get_scenario(scenario)]
+    )
+
+    console.print("[bold]Attacks[/bold]")
+    blocked = 0
+    for item in scenarios:
+        result = pipeline.evaluate(
+            target.run(
+                item.payload,
+                scenario_name=item.name,
+                category=item.category,
+            )
+        )
+        if result.blocked:
+            blocked += 1
+            console.print(
+                f"  [green]BLOCKED[/green] {item.name:<26} "
+                f"by {','.join(result.blocked_by)}"
+            )
+        else:
+            console.print(
+                f"  [red]ALLOWED[/red] {item.name:<26} "
+                f"tool={result.trace.tool_call.name or '-'}"
+            )
+    total = len(scenarios)
+    console.print(
+        f"[bold]Defense coverage:[/bold] {blocked}/{total} "
+        f"({blocked / total:.0%})" if total else "no scenarios"
+    )
+
+    if not include_benign:
+        return
+
+    console.print("\n[bold]Benign corpus[/bold]")
+    samples = benign_corpus()
+    false_blocks = []
+    for sample in samples:
+        result = pipeline.evaluate(target.run(sample.payload))
+        if result.blocked:
+            false_blocks.append(sample)
+            decision = result.first_block
+            # Escape the component name: Rich would read `[tool_guard]` as
+            # markup and drop it.
+            console.print(
+                f"  [yellow]BLOCKED[/yellow] {sample.name:<26} "
+                rf"\[{decision.component}] {decision.reason}"
+            )
+    completed = len(samples) - len(false_blocks)
+    console.print(
+        f"[bold]Task utility:[/bold] {completed}/{len(samples)} "
+        f"({completed / len(samples):.0%})"
+    )
+    if false_blocks:
+        console.print(
+            "[dim]A blocked benign task means the vulnerable agent routed it "
+            "into a policy violation; the block itself is correct.[/dim]"
+        )
+
+
 @cli.command("v05-scenarios")
 def v05_scenarios_cmd() -> None:
     """Evaluate the five v0.5 RuleEngine demo scenarios."""

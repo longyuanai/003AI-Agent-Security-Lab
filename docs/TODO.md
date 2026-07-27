@@ -1,6 +1,6 @@
 # 003 AI-Agent-Security-Lab · TODO
 
-> **项目状态**: v0.6 · 275 passed / 4 skipped · ruff 全绿 · CI 已接入
+> **项目状态**: v0.7-dev · 315 passed / 4 skipped · ruff 全绿 · CI 已接入
 > **共享接口**: [v0.1-contract.md](../../000shared-llm-core/docs/v0.1-contract.md) + [v0.5-contract.md](../../000shared-llm-core/docs/v0.5-contract.md) (均已冻结)
 > ⚠️ 共享内核实际版本是 **0.5.0**。`Finding` / `FindingSeverity` / `MultiAgentOrchestrator` /
 > `RuleEngine` / `FindingRegistry` 定义在 **v0.5** 契约,v0.1 契约里没有 —— 只读 v0.1 会
@@ -44,10 +44,10 @@
 | ID | 任务 | 优先级 | 依赖 |
 |----|------|--------|------|
 | ~~SPEC-001~~ | 修正 tech-spec 过期/矛盾 | ✅ done 2026-07-26 | 已直接执行,不必派 Codex |
-| DEF-001 | Defender Toolkit 四件套 | P0 | **无阻塞,可立即派** |
-| ATTACK-002 | 补 Memory Poison / Plan Hijack / Model DoS 三大攻击类 | P1 | 可与 DEF-001 并行 |
-| METRIC-002 | Defense Coverage / Task Utility / 真 Detection Latency / Cost | P1 | DEF-001 |
-| SCEN-E2E-001 | 跑通 tech-spec §12 旗舰剧本(端到端验收) | P1 | DEF-001 + METRIC-002 |
+| ~~DEF-001~~ | Defender Toolkit 四件套 | ✅ done 2026-07-26 | Coverage 10/10 · Task Utility 52/54 · CLI `defend` · 40 测试。**推翻了「工具名白名单即可」的假设**,详见 tech-spec §5.4 |
+| ATTACK-002 | 补 Memory Poison / Plan Hijack / Model DoS 三大攻击类 | P1 | **无阻塞,可立即派** |
+| METRIC-002 | Defense Coverage / Task Utility / 真 Detection Latency / Cost | P1 | **已解锁**(DEF-001 完成) |
+| SCEN-E2E-001 | 跑通 tech-spec §12 旗舰剧本(端到端验收) | P1 | 等 METRIC-002 |
 | REMEDIATION-001 | Scenario 加 remediation,报告输出修复建议 | P2 | 无 |
 | OWASP-001 | Scenario 加 owasp_ids,让覆盖率可计算 | P2 | 无 |
 | REPRO-001 | CI 加「同 seed 跑两次 diff 为空」 | P2 | 无 |

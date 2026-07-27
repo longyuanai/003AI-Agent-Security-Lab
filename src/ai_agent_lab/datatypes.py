@@ -99,6 +99,30 @@ class Detection:
 
 
 @dataclass(frozen=True)
+class GuardDecision:
+    """One defender component's verdict on one trace.
+
+    Distinct from `Detection`: a detector answers "was this an attack?", a
+    guard answers "does this violate policy?". They legitimately disagree --
+    a benign request that a vulnerable agent turns into a workspace escape is
+    `safe` to the detector and still blocked here.
+    """
+
+    allowed: bool
+    component: str  # "input_filter" | "plan_validator" | "tool_guard" | ...
+    reason: str = ""
+    evidence: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "allowed": self.allowed,
+            "component": self.component,
+            "reason": self.reason,
+            "evidence": self.evidence,
+        }
+
+
+@dataclass(frozen=True)
 class RunResult:
     """The end-to-end result of running one scenario."""
 

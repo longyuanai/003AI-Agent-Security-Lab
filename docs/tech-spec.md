@@ -158,10 +158,15 @@ AI Agent / LLM 应用正快速进入生产，但安全工程界缺乏：
 
 ### 5.4 Defender Toolkit
 
-> ❌ **整节尚未实现（实测 2026-07-26，全仓零代码）。这是当前的关键路径**：
-> §5.5 六个评估维度里有三个（Defense Coverage / Task Utility / 名副其实的
-> Detection Latency）没有它就**测不出来**，§12 的旗舰剧本也跑不过第 5 步。
-> 派活单见 `docs/dispatches/v07-tickets.md` 的 `DEF-001`。
+> ✅ **已交付 2026-07-26**（`src/ai_agent_lab/defender/`，CLI `defend`）。
+> 实测：Defense Coverage **10/10**，Task Utility **52/54 (96%)**。
+>
+> **实现中推翻了一个假设**：§12 描述的「Tool Guard 校验 send_email 不在白名单」
+> 暗示按工具名拉白名单即可，但实测**做不到** —— `exec_python` / `send_email` /
+> `sql_query` / `read_file` 在良性与攻击两侧都出现，纯工具名白名单要么误杀 4 个
+> 合法任务、要么漏掉 4 个攻击。区分二者的是**参数、请求措辞、以及流出的内容**，
+> 这正是本节要列四个组件而不是一个的原因。ToolGuard 因此是「工具名（粗）+
+> 每工具参数策略（细）」两级。
 
 - **输入侧**：moderation API、PII 脱敏、prompt 模板 hash 校验。
 - **规划侧**：Plan Validator 静态检查每一步工具调用是否在白名单。
@@ -169,10 +174,17 @@ AI Agent / LLM 应用正快速进入生产，但安全工程界缺乏：
 - **输出侧**：Output Auditor 比对已知 bad pattern；Canary Token 探针泄漏。
 - **取证侧**：Evidence Collector 自动归档所有 I/O 形成可重放审计链。
 
-> **验收标准**：§12 的典型剧本已经写好了预期输出（ASR=0% / Defender
-> Coverage=100% / 完整证据链），直接拿它当 `DEF-001` 的端到端验收。
-> **额外约束**：防御误杀合法任务比漏防更糟 —— `benign_corpus()` 的 54 条
-> 良性样本必须全部放行。
+> **各组件实测承担的层次**（每一层都挡下了别层挡不住的攻击）：
+> `InputFilter` 拦注入祈使句（间接注入 / RAG 投毒 —— 这两者的工具调用完全正常，
+> 下游无从反对）；`PlanValidator` 拦越权工具与「明确跳过确认」的破坏性操作；
+> `ToolGuard` 拦参数层违规；`OutputAuditor` 拦 canary 外泄。3 条攻击被两层同时
+> 拦下。
+>
+> **关于 Task Utility 不是 100%**：被拦的 2 条良性任务应当被拦 —— 脆弱 Agent 把
+> 「subprocess 与 os.popen 有何区别?」这个**提问**路由成了 `exec_shell` 命令，把
+> 相对导入路由成了工作区逃逸。放宽策略去凑 100% 等于允许生成代码调特权函数、
+> 允许读工作区外文件，正是「不得为凑指标削弱强信号」那条护栏禁止的。
+> 损失应归因于 Agent 的错误路由，而非策略。
 
 ### 5.5 评估引擎
 

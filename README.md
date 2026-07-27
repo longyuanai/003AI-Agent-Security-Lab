@@ -168,6 +168,35 @@ _Alarm threshold: `suspicious` or higher._
 A false positive is listed with the benign sample that tripped it and the rule
 that matched, so an over-broad rule is immediately attributable.
 
+## Defender Toolkit
+
+Four policy layers over an agent trace (tech-spec §5.4):
+
+```bash
+python -m ai_agent_lab.cli defend
+```
+
+```
+Defense coverage: 10/10 (100%)
+Task utility:     52/54 (96%)
+```
+
+A tool-name allowlist is not enough on its own: `exec_python`, `send_email`,
+`sql_query` and `read_file` all appear on both the benign and the attack side
+of the built-in corpora. What separates them is the arguments, the phrasing of
+the request, and what leaves in the result -- hence four layers, each of which
+blocks something the others miss.
+
+Task utility is deliberately not 100%. The two benign tasks that get blocked
+are ones the *vulnerable agent* routed into a real policy violation (a question
+about `os.popen` became a shell command; a relative import became a workspace
+escape). Relaxing the policy to reach 100% would mean permitting privileged
+calls in generated code and reads outside the workspace.
+
+Note that the detector and the defender can disagree, and both be right: the
+detector answers "was this an attack?", the defender answers "does this violate
+policy?".
+
 ## v0.5 multi-agent scenarios
 
 The v0.5 lab adds an offline MCP abuse role pipeline, five RuleEngine-backed

@@ -38,11 +38,15 @@ _EXPORTS: dict[str, str] = {
     "BenignRecord": "metrics",
     "BenignSample": "attacks",
     "CrossScenarioReport": "report",
+    "DefenderPipeline": "defender",
+    "DefenseResult": "defender",
     "Detection": "datatypes",
     "DetectionQuality": "metrics",
     "Detector": "detector",
     "FakeLLMRouter": "orchestrator",
+    "GuardDecision": "datatypes",
     "HeuristicDetector": "detector",
+    "InputFilter": "defender",
     "JudgeResult": "judge",
     "LAB_MISSION_ROLES": "orchestrator",
     "LLMDetector": "detector",
@@ -52,6 +56,8 @@ _EXPORTS: dict[str, str] = {
     "MCPAbuseRun": "multi_agent",
     "MetricRecord": "metrics",
     "OpenAILLMRouter": "orchestrator",
+    "OutputAuditor": "defender",
+    "PlanValidator": "defender",
     "RateSummary": "metrics",
     "RouterLabJudge": "judge",
     "RunResult": "datatypes",
@@ -67,6 +73,7 @@ _EXPORTS: dict[str, str] = {
     "TargetAgent": "target",
     "TargetCorrelation": "report",
     "ToolCall": "datatypes",
+    "ToolGuard": "defender",
     "Trace": "datatypes",
     "Verdict": "datatypes",
     "atlas_run_to_envelope": "runner",
@@ -125,11 +132,20 @@ if TYPE_CHECKING:  # let type checkers and IDEs see the real symbols
     )
     from ai_agent_lab.datatypes import (
         Detection,
+        GuardDecision,
         RunResult,
         ToolCall,
         Trace,
         Verdict,
         new_finding_id,
+    )
+    from ai_agent_lab.defender import (
+        DefenderPipeline,
+        DefenseResult,
+        InputFilter,
+        OutputAuditor,
+        PlanValidator,
+        ToolGuard,
     )
     from ai_agent_lab.detector import Detector, HeuristicDetector, LLMDetector
     from ai_agent_lab.judge import (
