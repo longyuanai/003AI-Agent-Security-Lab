@@ -276,16 +276,23 @@ def build_llm_runtime(
 
     if requested == "openai":
         api_key = env.get("OPENAI_API_KEY", "").strip()
-        if api_key:
-            return LLMRuntime(
-                provider="openai",
-                router=OpenAILLMRouter(
-                    api_key,
-                    model=env.get("OPENAI_MODEL", "gpt-4.1-mini"),
-                    base_url=env.get("OPENAI_BASE_URL"),
-                ),
+        if not api_key:
+            return _fake_runtime("OPENAI_API_KEY is not set")
+        try:
+            router = OpenAILLMRouter(
+                api_key,
+                model=env.get("OPENAI_MODEL", "gpt-4.1-mini"),
+                base_url=env.get("OPENAI_BASE_URL"),
             )
-        return _fake_runtime("OPENAI_API_KEY is not set")
+        except ImportError:
+            # `openai` is an optional extra. Selecting the provider without it
+            # installed should degrade like a missing key does, not surface a
+            # bare ModuleNotFoundError from three frames down.
+            return _fake_runtime(
+                "the 'openai' extra is not installed "
+                "(pip install 'ai-agent-lab[openai]')"
+            )
+        return LLMRuntime(provider="openai", router=router)
 
     if requested == "anthropic":
         api_key = env.get("ANTHROPIC_API_KEY", "").strip()
