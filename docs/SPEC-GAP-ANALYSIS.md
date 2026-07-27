@@ -45,7 +45,7 @@
 | 攻击者工具包 | ⚠️ 5/8 | 见 §4 |
 | **防御者工具包** | ✅ 已交付 | `src/ai_agent_lab/defender/` + CLI `defend`,见 §3 |
 | 隔离沙箱(Docker + seccomp) | ⚠️ | 仅 Python 层 monkeypatch。声称范围内的逃逸口已补齐并有测试;子进程 / `ctypes` 原理上够不着,已用测试钉住 |
-| 评估引擎 | ⚠️ 2/6 已实现,另 2 个已解锁待接线(`METRIC-002`) | 见 §3 表 |
+| 评估引擎 | ✅ 6/6 已实现(`METRIC-002` 2026-07-27 完成) | 见 §3 表 |
 | 报告(攻击链可视化 / **修复建议** / 可重放) | ⚠️ | 报告 ✅、可重放 ✅(`--seed`)、**修复建议 ❌**、攻击链可视化仅 correlation 的 ASCII 树 |
 
 ---
@@ -77,13 +77,14 @@
 |---|---|---|
 | Attack Success Rate | ✅ | `evaluate_asr()`,50 组合 |
 | False Positive | ✅ | 2026-07-26 补齐,54 条良性语料 |
-| **Defense Coverage** | ⚠️ 已能算(10/10),待接进 ASRReport | `DefenderPipeline` 已提供「阻断」动作 → `METRIC-002` |
-| **Task Utility** | ⚠️ 已能算(52/54),待接进 ASRReport | 语料复用 `benign_corpus()` → `METRIC-002` |
-| Detection Latency | ⚠️ 名不副实 | `MetricRecord.latency_ms` 记的是 `target.run + detect` 的**合计耗时**,不是 spec 定义的「攻击发生 → 告警」延迟 |
-| Cost | ❌ | 无 token / 算力统计。注:judge 已经拿得到 `usage`,接上去成本很低 |
+| **Defense Coverage** | ✅ 已接入 ASRReport | 实测 100%(10/10) |
+| **Task Utility** | ✅ 已接入 ASRReport | 实测 96.3%(52/54) |
+| Detection Latency | ✅ 语义已修正 | `detect_latency_ms` 只计探测阶段;`latency_ms`(含 Agent 路由)保留作兼容 |
+| Cost | ✅ 已接入 ASRReport | `CostSummary`;`LLMDetector` 现记录 `usage`,离线跑为 0 |
 
 §12 的典型剧本第 5 步(Tool Guard 阻断)**现已可跑**;第 6 步(把 ASR / Coverage
-写进同一份报告)等 `METRIC-002` 接线。原文:
+写进同一份报告)**已由 `METRIC-002` 完成**。验证过程中发现第 4-5 步的叙事
+与单步路由器实现不符(详见 tech-spec §12 的警告注记),已登记给 `SCEN-E2E-001`。原文:
 
 > 5. Defender Toolkit 拦截:Tool Guard 校验 send_email 不在白名单 → 阻断 + 告警
 > 6. 评估:ASR=0%;Defender Coverage=100%;输出完整证据链
@@ -127,7 +128,7 @@ OWASP 标准剧本(§5.5)清单共 **10 条**(6 条 OWASP + 4 条 Agentic 扩展
 SPEC-001  改 spec 自身的 5 处过期/矛盾      ✅ 已完成 2026-07-26
    │
    ├─ DEF-001   Defender Toolkit (4 个组件)   ✅ 已完成 2026-07-26
-   │      └─ METRIC-002  Defense Coverage / Task Utility / 真 Detection Latency  ← 已解锁
+   │      └─ METRIC-002  Defense Coverage / Task Utility / 真 Detection Latency  ✅ 已完成 2026-07-27
    │             └─ SCEN-E2E-001  跑通 §12 旗舰剧本(端到端验收)
    │
    ├─ ATTACK-002  Memory Poison + Plan Hijack + Model Theft/DoS
@@ -168,7 +169,6 @@ SPEC-001  改 spec 自身的 5 处过期/矛盾      ✅ 已完成 2026-07-26
 
 | 项 | 为什么重要 |
 |---|---|
-| **成本统计** | §5.5 列了 Cost 维度,§9 没有对应指标。judge 已经拿得到 `usage`,接上去很便宜 |
 | **v1.0 多模型对比** | PHASE-2 路线图写了「同一攻击对 GPT/Claude/Qwen 各自表现」,但 `LLMRuntime` 一次只能选一个 provider,没有并排跑的编排 |
 | **靶场自身被反控** | §9 有「靶场本身被反控 = 0」的指标,但没有任何检测机制。至少该有一条:ATLAS payload 必须是合成 canary,不得含真实可执行恶意内容(现在靠人工守纪律) |
 | **重现一致性 ≥ 95%** | §9 指标。`--seed` 已让 ATLAS 可复现,但**没有测量机制**。可以加一个「同 seed 跑两次 diff 必须为空」的 CI 步骤,把指标变成自动验证 |
@@ -181,5 +181,5 @@ SPEC-001  改 spec 自身的 5 处过期/矛盾      ✅ 已完成 2026-07-26
 |---|---|
 | 仿真环境(§5.7 DVWA / Mail / AD) | 投入极大,且 §5.7 自己标了「可选」。在 Defender Toolkit 之前做,等于给一个还不会防守的靶场加真实靶标 |
 | 完整 K8s / 多租户部署(§8) | 当前是单机库形态,离多租户还有两个数量级的距离。PoC 阶段做这个是提前优化 |
-| 排行榜(§3 Could) | 依赖多模型对比,而多模型对比依赖成本统计。链条太长,先把评估引擎补完整 |
+| 排行榜(§3 Could) | 成本统计已就绪(`CostSummary`),但仍依赖多模型对比(`LLMRuntime` 一次只能选一个 provider,无并排编排)。链条还没断完 |
 | 内核级沙箱(SAND-002) | 优先级不低,但它挡的是「不受信任代码」场景。当前靶场跑的全是自己写的合成 payload,威胁模型对不上。等到要接客户自研 Agent 时再做 |

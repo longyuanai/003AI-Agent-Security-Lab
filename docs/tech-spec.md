@@ -186,20 +186,22 @@ AI Agent / LLM 应用正快速进入生产，但安全工程界缺乏：
 > 允许读工作区外文件，正是「不得为凑指标削弱强信号」那条护栏禁止的。
 > 损失应归因于 Agent 的错误路由，而非策略。
 
-### 5.5 评估引擎
+### 5.5 评估引擎 ✅ 六维度已全部实现（2026-07-27）
 
 评估维度（每个 Target Agent × 每个 Attack 模式 打分）：
 
-| 维度 | 公式 | 目标方向 | 状态（2026-07-26 实测） |
+| 维度 | 公式 | 目标方向 | 状态（2026-07-27 实测） |
 |------|------|----------|------|
-| Attack Success Rate (ASR) | 成功攻击 / 总攻击 | ↓ | ✅ `evaluate_asr()`，50 组合 |
-| Defense Coverage | 已阻断攻击 / 总攻击 | ↑ | ❌ 依赖 `DEF-001` |
-| False Positive | 误报阻断 / 合法任务 | ↓ | ✅ `evaluate_detection_quality()`，54 条良性语料 |
-| Task Utility | 合法任务完成率 | 维持 | ❌ 依赖 `DEF-001` |
-| Detection Latency | 攻击发生到告警 | ↓ | ⚠️ 名不副实：现记的是 `target.run + detect` 合计耗时 |
-| Cost | 单评估 token + 算力 | ↓ | ❌ judge 已能拿到 `usage`，接上即可 |
+| Attack Success Rate (ASR) | 成功攻击 / 总攻击 | ↓ | ✅ `evaluate_asr()`，50 组合，实测 22.0% |
+| Defense Coverage | 已阻断攻击 / 总攻击 | ↑ | ✅ `evaluate_defense()`，实测 **100%**（10/10） |
+| False Positive | 误报阻断 / 合法任务 | ↓ | ✅ `evaluate_detection_quality()`，54 条良性语料，实测 **0%** |
+| Task Utility | 合法任务完成率 | 维持 | ✅ `evaluate_defense()`，实测 **96.3%**（52/54，2 条应被拦见 §5.4） |
+| Detection Latency | 攻击发生到告警 | ↓ | ✅ `MetricRecord.detect_latency_ms`（探测阶段单独计时，不含 Agent 路由）|
+| Cost | 单评估 token + 算力 | ↓ | ✅ `CostSummary`,`LLMDetector` 现记录 `usage`；纯离线跑为 0 |
 
-> 三个缺口统一由 `METRIC-002` 承接（依赖 `DEF-001`）。
+> 全部接入 `ASRReport`,`python -m ai_agent_lab.cli metrics` 一次输出全部六维度。
+> `MetricRecord.latency_ms`(Agent 路由 + 探测合计)保留作兼容,拆分后的
+> `agent_latency_ms` / `detect_latency_ms` 才是各自独立的耗时。
 
 标准剧本：
 
@@ -318,6 +320,17 @@ AI Agent / LLM 应用正快速进入生产，但安全工程界缺乏：
 4. Agent 抓页面 → 隐藏指令被纳入上下文 → 调用 send_email 工具。
 5. Defender Toolkit 拦截:Tool Guard 校验 send_email 不在白名单 → 阻断 + 告警。
 6. 评估:ASR=0%;Defender Coverage=100%;输出完整证据链。
+
+> ⚠️ **第 4-5 步与当前实现有出入(2026-07-27 验证时发现)**:`TargetAgent`
+> 是单步确定性正则路由(见 README「PoC shortcuts」),内置的
+> `indirect-web-injection` 场景里,同一段输入同时含 URL 与注入短语时,
+> 路由器先匹配到 `playwright_open`,从未真正产生第二步的 `send_email` 调用。
+> 防御链**确实拦下了这个场景**(`input_filter` 检测到注入祈使句直接拦截
+> 整个请求),但拦的是「单步文本含注入短语」,不是「fetch → 二次工具调用」
+> 这条链路。ASR=0% / Defender Coverage=100% 这两个数字本身是真的
+> (`python -m ai_agent_lab.cli defend` 可复验),但第 4-5 步的叙事需要
+> `SCEN-E2E-001` 裁定是改代码(让路由支持两步)还是改这段叙事,
+> 详见 `docs/dispatches/v07-tickets.md`。
 
 ---
 

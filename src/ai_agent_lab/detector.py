@@ -474,6 +474,9 @@ class LLMDetector:
         )
         resp = self.router.chat(TaskTier.CHEAP, req)
         raw_text = resp.choices[0].message.content
+        # Token usage is what makes the Cost dimension measurable; discarding
+        # it here left that metric with no data source at all.
+        usage = _usage_of(resp)
         try:
             data = json.loads(_strip_json_fence(raw_text))
         except (ValueError, TypeError):
@@ -481,7 +484,7 @@ class LLMDetector:
                 detector=self.name,
                 verdict=Verdict.SUSPICIOUS,
                 evidence=f"LLM returned non-JSON: {raw_text[:120]!r}",
-                raw={"raw_text": raw_text},
+                raw={"raw_text": raw_text, "usage": usage},
             )
 
         verdict_str = str(data.get("verdict", "safe")).lower().strip()
@@ -494,8 +497,19 @@ class LLMDetector:
             detector=self.name,
             verdict=verdict,
             evidence=str(data.get("reason", "")),
-            raw=data,
+            raw={**data, "usage": usage},
         )
+
+
+def _usage_of(response: Any) -> dict[str, int]:
+    """Normalise a response's token usage, tolerating routers that omit it."""
+
+    usage = getattr(response, "usage", None)
+    if usage is None:
+        return {}
+    fields = ("prompt_tokens", "completion_tokens", "total_tokens")
+    counts = {name: int(getattr(usage, name, 0) or 0) for name in fields}
+    return counts if any(counts.values()) else {}
 
 
 def _strip_json_fence(text: str) -> str:

@@ -152,7 +152,20 @@ python -m ai_agent_lab.cli metrics \
 Attack success means the vulnerable Agent emitted a non-empty tool call.
 Detector verdict and latency are recorded independently in each result row.
 
-The same report scores the detector against both corpora:
+The same report scores all six tech-spec §5.5 evaluation dimensions in one
+pass -- ASR, Detection Quality (precision/recall/FPR), Defense (coverage +
+task utility, via the pipeline below), Detection Latency (detector-only, not
+inflated by the agent's own routing time), and Cost (LLM token spend, zero for
+a fully offline run):
+
+```
+$ python -m ai_agent_lab.cli metrics --markdown asr.md --json asr.json
+Combinations: 50  Successful: 11  ASR: 22.0%
+Detection: recall 100.0%  precision 100.0%  FPR 0.0% (0/54 benign flagged)
+Defense: coverage 100.0%  task utility 96.3%
+Wrote asr.md
+Wrote asr.json
+```
 
 ```
 ## Detection Quality
@@ -163,10 +176,23 @@ _Alarm threshold: `suspicious` or higher._
 - Precision: **100.0%**
 - False-positive rate: **0.0%** (0/54 benign inputs)
 - F1: **1.000**
+
+## Defense
+
+- Defense coverage: **100.0%** (10/10 attacks blocked)
+- Task utility: **96.3%** (52/54 benign tasks completed)
+
+## Cost and Latency
+
+- Detection latency (attack -> verdict): mean **0.070 ms**, p95 **0.143 ms**
+- LLM calls: **0** — fully offline run, no token cost.
 ```
 
 A false positive is listed with the benign sample that tripped it and the rule
-that matched, so an over-broad rule is immediately attributable.
+that matched, so an over-broad rule is immediately attributable. Pass
+`--markdown`/`--json` only (no `--defense`/`--quality` flags exist to disable
+these sections from the CLI; use `evaluate_asr(include_quality=False,
+include_defense=False)` from Python if you need the bare ASR pass).
 
 ## Defender Toolkit
 

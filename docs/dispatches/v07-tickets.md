@@ -212,7 +212,30 @@
 
 ---
 
-## METRIC-002 · 补齐评估引擎缺的三个维度(依赖 DEF-001)
+## ~~METRIC-002~~ · 补齐评估引擎缺的三个维度 ✅ 已完成 2026-07-27
+
+> 已实现:`DefenseReport` / `evaluate_defense()`、`agent_latency_ms` +
+> `detect_latency_ms` 拆分、`CostSummary` / `summarise_cost()`,全部接入
+> `ASRReport` 与 `render_asr_markdown()`。19 个新测试(`test_metric_002.py`)。
+> 实测:Defense Coverage 100%、Task Utility 96.3%、Detection Latency 已语义
+> 正确(仅探测阶段)、Cost 离线跑为 0、接 LLM 后可统计 token。
+>
+> **超出票面范围多做的一件事**:`LLMDetector.detect()` 原本调了 LLM 却直接
+> 丢弃 `response.usage` —— Cost 维度原本连数据来源都没有。已在其 `Detection.raw`
+> 里补上 `usage`,`summarise_cost()` 从 combined detector 的嵌套 raw 结构里
+> 递归取出。不改这个,Cost 永远是 0,等于假实现。
+>
+> **验证中发现的真实差距,已登记给 `SCEN-E2E-001`**:tech-spec §12 旗舰剧本描述
+> 「Agent 抓页面 → 隐藏指令被纳入上下文 → 调用 send_email」,但内置的
+> `indirect-web-injection` 场景里,单步确定性路由器实际上匹配的是
+> `playwright_open`(因为同一段输入里既有 URL 又有注入短语,URL 模式匹配优先),
+> 从未真正走到 `send_email`。防御链确实挡住了(`input_filter` 拦下注入短语),
+> 但挡住的不是 §12 描述的那条「fetch → 二次调用」链路,而是单步文本里的指令。
+> 这是 README 早就写明的 PoC 限制(「路由是单步 regex,不模拟多轮 agentic 行为」),
+> 但 §12 的叙事没有对齐这一点。`SCEN-E2E-001` 需要要么改造 target agent 支持
+> 两步路由,要么把 §12 的叙事改成如实描述单步版本。
+
+<details><summary>原派活单(存档)</summary>
 
 ```
 [METRIC-002] 003 AI-Agent-Security-Lab · Defense Coverage / Task Utility / 真 Detection Latency
@@ -253,6 +276,64 @@
 - [ ] 新增测试 ≥ 8 个
 - [ ] CLI smoke: metrics 报告里 6 个维度齐全(粘贴 Markdown 片段)
 - [ ] ruff 全绿
+```
+
+</details>
+
+---
+
+## SCEN-E2E-001 · 跑通 §12 旗舰剧本(现已无阻塞)← **可派**
+
+```
+[SCEN-E2E-001] 003 AI-Agent-Security-Lab · 让 §12 旗舰剧本描述与实现对齐
+
+## 背景
+- METRIC-002 完成后发现:tech-spec §12 描述的攻击链(Agent 抓取网页 → 隐藏指令
+  纳入上下文 → 二次调用 send_email)与内置 indirect-web-injection 场景的实际
+  行为不符。TargetAgent._route() 是单步确定性正则路由,同一段输入里若同时出现
+  URL 与注入短语,会先匹配 playwright_open,从未走到 send_email。
+  防御链确实挡住了这个场景(input_filter 拦下注入短语),但挡住的不是 §12 描述
+  的那条「fetch → 二次调用」链路。
+
+## ⚠️ 必须先 Read
+1. docs/dispatches/v07-tickets.md 里 METRIC-002 完成说明的最后一段
+2. src/ai_agent_lab/target.py 的 TargetAgent._route()
+3. docs/tech-spec.md §12
+4. README.md「PoC shortcuts」一节(已有的单步路由声明)
+
+## 必须做的事(二选一,不要同时做)
+
+**方案 A(改代码,更贴合 §12 叙事)**:
+1. 给 TargetAgent 加一个可选的两步模式:当 payload 匹配 playwright_open/
+   http_fetch 且抓取结果(mock)中包含注入短语时,产生第二个 ToolCall
+   (例如 send_email),并把两步都记录进 Trace(需要扩展 Trace 支持多个
+   tool_call,或加一个 chained_tool_call 字段)
+2. DefenderPipeline.evaluate 需要能对多步 trace 逐步评估
+3. 用这个两步版本重新验证 §12 剧本,产出完整证据链
+
+**方案 B(改文档,如实描述现状,工作量小得多)**:
+1. tech-spec §12 剧本第 4 步改为如实描述:「Agent 单步路由匹配 playwright_open
+   (URL 模式优先于注入短语)」,不再声称调用了 send_email
+2. 第 5 步改为:「input_filter 检测到注入祈使句,直接拦截整个请求」
+3. 在剧本末尾加一条注记,说明「若要演示完整的 fetch → 二次调用链路,需要
+   TargetAgent 支持多步路由,当前 PoC 是单步」
+
+## 必须满足的约束
+- 方案 A 是新场景/行为改造,需要新测试覆盖两步路由与两步防御评估;
+  不得破坏现有单步场景的行为(所有 built_in_scenarios() 必须仍按原样路由)
+- 方案 B 只改 docs/,不动代码
+- 先问人类要哪个方案,不要自行决定(工作量差异大)
+
+## 验收(方案 A)
+- [ ] pytest 全绿,新增测试 ≥ 6 个
+- [ ] CLI smoke: defend 命令能展示两步 trace 的防御结果
+- [ ] ruff 全绿
+
+## 验收(方案 B)
+- [ ] git diff --stat 只含 docs/tech-spec.md
+- [ ] §12 剧本读起来与代码行为一致(可执行验证:跑一遍
+      DefenderPipeline().evaluate(TargetAgent().run(indirect-web-injection.payload))
+      看输出是否与文中描述吻合)
 ```
 
 ---

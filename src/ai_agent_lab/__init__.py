@@ -37,8 +37,11 @@ _EXPORTS: dict[str, str] = {
     "AtlasRun": "runner",
     "BenignRecord": "metrics",
     "BenignSample": "attacks",
+    "CostSummary": "metrics",
     "CrossScenarioReport": "report",
     "DefenderPipeline": "defender",
+    "DefenseRecord": "metrics",
+    "DefenseReport": "metrics",
     "DefenseResult": "defender",
     "Detection": "datatypes",
     "DetectionQuality": "metrics",
@@ -87,6 +90,7 @@ _EXPORTS: dict[str, str] = {
     "built_in_scenarios": "attacks",
     "built_in_targets": "target",
     "evaluate_asr": "metrics",
+    "evaluate_defense": "metrics",
     "evaluate_demo_scenarios": "scenarios",
     "evaluate_detection_quality": "metrics",
     "get_target": "target",
@@ -99,6 +103,7 @@ _EXPORTS: dict[str, str] = {
     "run_offline_mcp_abuse_demo": "multi_agent",
     "run_scenario": "runner",
     "scan_payload": "scan",
+    "summarise_cost": "metrics",
     "write_asr_reports": "metrics",
 }
 
@@ -158,12 +163,17 @@ if TYPE_CHECKING:  # let type checkers and IDEs see the real symbols
     from ai_agent_lab.metrics import (
         ASRReport,
         BenignRecord,
+        CostSummary,
+        DefenseRecord,
+        DefenseReport,
         DetectionQuality,
         MetricRecord,
         RateSummary,
         evaluate_asr,
+        evaluate_defense,
         evaluate_detection_quality,
         render_asr_markdown,
+        summarise_cost,
         write_asr_reports,
     )
     from ai_agent_lab.multi_agent import (

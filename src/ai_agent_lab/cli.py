@@ -416,6 +416,17 @@ def metrics_cmd(markdown_path: str, json_path: str) -> None:
             f"({quality.false_positives}/"
             f"{quality.false_positives + quality.true_negatives} benign flagged)"
         )
+    if report.defense is not None:
+        defense = report.defense
+        console.print(
+            f"[bold]Defense:[/bold] coverage {defense.defense_coverage:.1%}  "
+            f"task utility {defense.task_utility:.1%}"
+        )
+    if report.cost.llm_calls:
+        console.print(
+            f"[bold]Cost:[/bold] {report.cost.llm_calls} LLM calls, "
+            f"{report.cost.total_tokens} tokens"
+        )
     console.print(f"[green]Wrote[/green] {md_path}")
     console.print(f"[green]Wrote[/green] {js_path}")
 
