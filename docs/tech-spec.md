@@ -128,19 +128,40 @@ AI Agent / LLM 应用正快速进入生产，但安全工程界缺乏：
 
 ### 5.3 Adversary Toolkit
 
-- 8 大类 30+ 攻击模式（YAML DSL 描述）：
-  1. **Direct Prompt Injection**：越狱、角色扮演、上下文溢出。
-  2. **Indirect Prompt Injection**：通过工具返回内容注入。
-  3. **Tool Escape**：参数注入、SSRF、命令注入、路径穿越。
-  4. **Memory Poison**：长会话历史污染、跨会话污染。
-  5. **Plan Hijack**：子任务 / 多 Agent 通信被劫持。
-  6. **RAG Poison**：向量库投毒、反向检索诱导。
-  7. **Supply Chain**：依赖被替换、MCP Server 不可信。
-  8. **Model Theft / DoS**：超长上下文、资源耗尽。
-- 每个模式带：触发条件、payload 生成器、检测信号、修复建议。
-- 提供 Adversary Agent：自主组合攻击链，可对抗 Defender Agent。
+**实现形态**：Python 声明式（`attacks.py` 的 `Scenario` + `atlas/` 的 `ATLASTactic`），
+通过 `longyuanai.atlas_tactics` entry_points 支持第三方战术包插件化扩展。
+攻击场景 YAML DSL 化是 v1.0 目标，见 §10 与 `SCEN-002`。
+
+8 大类 30+ 攻击模式（✅ = 已实现，❌ = 未实现，实测 2026-07-26）：
+
+| # | 大类 | 状态 | 说明 |
+|---|------|------|------|
+| 1 | Direct Prompt Injection | ✅ | 越狱、角色扮演、上下文溢出 |
+| 2 | Indirect Prompt Injection | ✅ | 通过工具返回内容注入 |
+| 3 | Tool Escape | ✅ | 参数注入、SSRF、命令注入、路径穿越 |
+| 4 | **Memory Poison** | ❌ | 长会话历史污染、跨会话污染 → `ATTACK-002` |
+| 5 | **Plan Hijack** | ❌ | 子任务 / 多 Agent 通信被劫持 → `ATTACK-002` |
+| 6 | RAG Poison | ✅ | 向量库投毒、反向检索诱导 |
+| 7 | Supply Chain | ✅ | 依赖被替换、MCP Server 不可信 |
+| 8 | **Model Theft / DoS** | ❌ | 超长上下文、资源耗尽 → `ATTACK-002` |
+
+- 每个模式带：触发条件 ✅、payload 生成器 ❌、检测信号 ✅、修复建议 ❌。
+  > 未实现的两项：当前 `Scenario` 只有静态 payload（非生成器），且全仓无
+  > remediation 字段。见 `docs/dispatches/v07-tickets.md` 的 `REMEDIATION-001`。
+- 提供 Adversary Agent：自主组合攻击链，可对抗 Defender Agent。❌ 未实现
+  （依赖 Defender Toolkit，见 §5.4 / `DEF-001`）。
+
+> **配套约束（写规则时必读）**：每新增一个攻击类，必须同时在
+> `attacks.py::benign_corpus()` 补 ≥ 3 条对应的良性近似样本，且
+> `evaluate_detection_quality()` 的误报率必须保持 0%。规则用判别式而非裸关键词。
+> 缘由见 `docs/SPEC-GAP-ANALYSIS.md` §6。
 
 ### 5.4 Defender Toolkit
+
+> ❌ **整节尚未实现（实测 2026-07-26，全仓零代码）。这是当前的关键路径**：
+> §5.5 六个评估维度里有三个（Defense Coverage / Task Utility / 名副其实的
+> Detection Latency）没有它就**测不出来**，§12 的旗舰剧本也跑不过第 5 步。
+> 派活单见 `docs/dispatches/v07-tickets.md` 的 `DEF-001`。
 
 - **输入侧**：moderation API、PII 脱敏、prompt 模板 hash 校验。
 - **规划侧**：Plan Validator 静态检查每一步工具调用是否在白名单。
@@ -148,18 +169,25 @@ AI Agent / LLM 应用正快速进入生产，但安全工程界缺乏：
 - **输出侧**：Output Auditor 比对已知 bad pattern；Canary Token 探针泄漏。
 - **取证侧**：Evidence Collector 自动归档所有 I/O 形成可重放审计链。
 
+> **验收标准**：§12 的典型剧本已经写好了预期输出（ASR=0% / Defender
+> Coverage=100% / 完整证据链），直接拿它当 `DEF-001` 的端到端验收。
+> **额外约束**：防御误杀合法任务比漏防更糟 —— `benign_corpus()` 的 54 条
+> 良性样本必须全部放行。
+
 ### 5.5 评估引擎
 
 评估维度（每个 Target Agent × 每个 Attack 模式 打分）：
 
-| 维度 | 公式 | 目标方向 |
-|------|------|----------|
-| Attack Success Rate (ASR) | 成功攻击 / 总攻击 | ↓ |
-| Defense Coverage | 已阻断攻击 / 总攻击 | ↑ |
-| False Positive | 误报阻断 / 合法任务 | ↓ |
-| Task Utility | 合法任务完成率 | 维持 |
-| Detection Latency | 攻击发生到告警 | ↓ |
-| Cost | 单评估 token + 算力 | ↓ |
+| 维度 | 公式 | 目标方向 | 状态（2026-07-26 实测） |
+|------|------|----------|------|
+| Attack Success Rate (ASR) | 成功攻击 / 总攻击 | ↓ | ✅ `evaluate_asr()`，50 组合 |
+| Defense Coverage | 已阻断攻击 / 总攻击 | ↑ | ❌ 依赖 `DEF-001` |
+| False Positive | 误报阻断 / 合法任务 | ↓ | ✅ `evaluate_detection_quality()`，54 条良性语料 |
+| Task Utility | 合法任务完成率 | 维持 | ❌ 依赖 `DEF-001` |
+| Detection Latency | 攻击发生到告警 | ↓ | ⚠️ 名不副实：现记的是 `target.run + detect` 合计耗时 |
+| Cost | 单评估 token + 算力 | ↓ | ❌ judge 已能拿到 `usage`，接上即可 |
+
+> 三个缺口统一由 `METRIC-002` 承接（依赖 `DEF-001`）。
 
 标准剧本：
 
@@ -233,7 +261,7 @@ AI Agent / LLM 应用正快速进入生产，但安全工程界缺乏：
 
 | 维度 | 指标 | 目标 |
 |------|------|------|
-| 覆盖 | OWASP LLM/Agentic 用例覆盖 | ≥ 90% |
+| 覆盖 | OWASP LLM/Agentic 用例覆盖 | ≥ 90%（**实测 2026-07-26：严格 3/10 = 30%，计入部分覆盖 5/10 = 50%**。缺 LLM-07 系统提示泄露 / LLM-10 Model Theft / Plan Hijack / Memory Poison / Identity Spoofing） |
 | 价值 | 客户自检发现的新缺陷 / 演练 | ≥ 1 个 / 客户 |
 | 性能 | 单次评估时长 | < 30 min |
 | 重现 | 同一剧本两次结果一致 | ≥ 95% |
@@ -245,8 +273,14 @@ AI Agent / LLM 应用正快速进入生产，但安全工程界缺乏：
 
 - **v0.1 PoC（1 个月）**：3 个 Target Agent + 5 类攻击 + 沙箱 + 基础报告。
 - **v0.3 Beta（3 个月）**：完整 OWASP LLM Top-10 + 多 Agent 对抗。
-- **v0.6 GA（6 个月）**：仿真环境 + 排行榜 + CI 接入。
-- **v1.0（1 年）**：完整 Agentic Top-10 + 客户生态。
+- **v0.6（已交付 2026-07）**：MITRE ATLAS 模板库（10 个 tactic）+ 真实 LLM-as-judge
+  + 红队报告导出（Markdown + JSON evidence）+ GitHub Actions CI。
+  ⚠️ 原计划的「仿真环境 + 排行榜」**未开工**，顺延至 v1.0。
+- **v0.7（规划中）**：Defender Toolkit + 评估引擎补全（Defense Coverage /
+  Task Utility / Cost）+ 补齐 Memory Poison / Plan Hijack / Model DoS 三大攻击类。
+  见 `docs/dispatches/v07-tickets.md`。
+- **v1.0（1 年）**：完整 Agentic Top-10 + 攻击场景 YAML DSL 化 + 仿真环境 +
+  排行榜 + 多模型对比 + 客户生态。
 
 ---
 
@@ -275,9 +309,14 @@ AI Agent / LLM 应用正快速进入生产，但安全工程界缺乏：
 
 ---
 
-## 13. Phase-2 实施(v0.6+ 改造指令)
+## 13. Phase-2 实施（✅ 已交付 · 2026-07）
 
-> **本文是 Codex 实施 Phase-2 的入口**。路线图 v0.6 之后所有改动以此为准。
+> **本节已完成，保留作实施记录。新任务入口是
+> [`docs/dispatches/v07-tickets.md`](dispatches/v07-tickets.md)，
+> 差距依据是 [`docs/SPEC-GAP-ANALYSIS.md`](SPEC-GAP-ANALYSIS.md)。**
+>
+> Hook A（ATLAS 模板库，10 个 tactic）、Hook B（真实 LLM-as-judge）、
+> Hook C（Markdown + JSON evidence 红队报告）三项均已交付并有测试覆盖。
 
 ### 13.1 Hook A · Mitre ATLAS 攻击模板库(v0.6)
 
@@ -426,8 +465,9 @@ python -m ai_agent_lab scan \
   --seed 42 --json
 ```
 
-预期:全绿(当前 239 passed);缺少 `000shared-integration` 兄弟仓时,相关
-4 个 gateway 用例会 skip 而不是 error。CLI envelope 仍是
+预期:**全绿(零 failed / 零 error)**。具体通过数以 CI 为准 —— 不要写进文档,
+这个数字漂移得比文档更新快(195 → 239 → …)。缺少 `000shared-integration`
+兄弟仓时,相关 4 个 gateway 用例会 skip 而不是 error。CLI envelope 仍是
 `{"findings": [...], "summary": {...}}`。
 
 > 前置条件:`000shared-llm-core` 必须作为同级目录 checkout,见 README「Install」。

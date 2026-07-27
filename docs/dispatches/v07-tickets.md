@@ -6,7 +6,13 @@
 
 ---
 
-## SPEC-001 · 修正技术方案里过期与自相矛盾的 5 处
+## ~~SPEC-001~~ · 修正技术方案里过期与自相矛盾的 5 处 ✅ 已完成 2026-07-26
+
+> 已由本轮直接执行,无需派给 Codex。改动:7 处契约指向 v0.5、§5.3 YAML 矛盾裁定、
+> §5.3/§5.4/§5.5 补状态标注、§9 标注实测覆盖率、§10 路线图对齐、§13 标记已交付
+> 并删掉写死的测试数。**下一张可直接派的是 `DEF-001`。**
+
+<details><summary>原派活单(存档)</summary>
 
 ```
 [SPEC-001] 003 AI-Agent-Security-Lab · 修正 tech-spec 过期与矛盾之处
@@ -66,9 +72,11 @@
 - [ ] grep -n "v0.1-contract" docs/CODEX_INSTRUCTIONS.md 同时能看到 v0.5-contract
 ```
 
+</details>
+
 ---
 
-## DEF-001 · Defender Toolkit(关键路径)
+## DEF-001 · Defender Toolkit(关键路径)← **从这里开始派**
 
 ```
 [DEF-001] 003 AI-Agent-Security-Lab · 实现 Defender Toolkit 四件套

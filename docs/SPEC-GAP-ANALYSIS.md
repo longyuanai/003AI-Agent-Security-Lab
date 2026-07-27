@@ -11,15 +11,19 @@
 
 **方案本身没有方向性错误,问题在三处:**
 
-1. **有三处过期/自相矛盾,会直接误导 Codex** —— 派活前必须先改 spec(§1)。
+1. ~~**有五处过期/自相矛盾,会直接误导 Codex**~~ —— **已于 2026-07-26 直接修完**(§1)。
 2. **Defender Toolkit 是关键路径,不是"少一个模块"** —— 评估引擎 6 个维度里有 3 个没它就**测不出来**,§12 的旗舰剧本也跑不通(§3)。
 3. **攻击面覆盖 5/8 大类**,缺的 3 类(Memory Poison / Plan Hijack / Model Theft & DoS)恰好是"Agent 特有"的那部分 —— 而这正是 §2 产品定位里写的差异化卖点(§4)。
 
 ---
 
-## 1. 方案本身要先改的地方(阻塞派活)
+## 1. 方案本身要先改的地方(✅ 已完成 2026-07-26)
 
-这几条如果不改,Codex 读了会走错路。
+这几条如果不改,Codex 读了会走错路。**本节 5 条已全部执行完毕**,下表保留作记录。
+
+> 实际执行时发现契约指错不是 1 处而是 **7 处**(TODO.md 2 处 + CODEX_INSTRUCTIONS.md 5 处),
+> 且 §5.3/§5.4/§5.5 顺带补了逐项实现状态标注 —— 让 Codex 一眼能看出哪些是「已交付」
+> 哪些是「产品意图但零代码」,不必再去翻代码确认。
 
 | # | 位置 | 问题 | 建议 |
 |---|------|------|------|
@@ -82,9 +86,15 @@
 | 7 Supply Chain | ✅ | `scenarios/supply_chain.py` + `mcp.py` |
 | 8 **Model Theft / DoS** | ❌ | 无。超长上下文 / 资源耗尽 |
 
-OWASP 标准剧本(§5.5)覆盖约 **3/7**:LLM-01 ✅、LLM-08 ✅、LLM-06 ⚠️(tool_misuse 沾边)、LLM-02 ⚠️(token_theft 沾边)、**LLM-07 系统提示泄露 ❌**、**LLM-10 Model Theft ❌**、Identity Spoofing ❌。
+OWASP 标准剧本(§5.5)清单共 **10 条**(6 条 OWASP + 4 条 Agentic 扩展),实测:
 
-§9 定的产品指标是「OWASP 覆盖 ≥ 90%」,当前约 43%。**这个 gap 建议在 spec 里如实标注当前值**,否则指标形同虚设。
+- **完整覆盖 3 条**:LLM-01 Prompt Injection、LLM-08 Vector & Embedding、Agentic Tool Misuse
+- **部分覆盖 2 条**:LLM-02 Sensitive Disclosure(token_theft / email_exfiltration 沾边)、LLM-06 Excessive Agency(tool_misuse 沾边)
+- **未覆盖 5 条**:LLM-07 系统提示泄露、LLM-10 Model Theft、Agentic Plan Hijack、Agentic Memory Poison、Agentic Identity Spoofing
+
+→ **严格计 3/10 = 30%;计入部分覆盖 5/10 = 50%**。
+
+§9 定的产品指标是「OWASP 覆盖 ≥ 90%」,当前 30%(严格)/ 50%(宽松)。**已在 spec §9 如实标注**,否则指标形同虚设。
 
 > 补充:全仓**没有任何 OWASP 编号到攻击类的映射**(已 grep 确认)。就算覆盖率上去了,也没法自动算出「覆盖了哪几条」。建议给 `Scenario` 加 `owasp_ids` 字段,让覆盖率变成可计算的数字而不是人工数。
 
@@ -95,9 +105,9 @@ OWASP 标准剧本(§5.5)覆盖约 **3/7**:LLM-01 ✅、LLM-08 ✅、LLM-06 ⚠�
 按依赖排,前两个是关键路径:
 
 ```
-SPEC-001  改 spec 自身的 5 处过期/矛盾      ← 阻塞其余全部,先做
+SPEC-001  改 spec 自身的 5 处过期/矛盾      ✅ 已完成 2026-07-26
    │
-   ├─ DEF-001   Defender Toolkit (4 个组件)   ← 解锁 3 个评估维度
+   ├─ DEF-001   Defender Toolkit (4 个组件)   ← 解锁 3 个评估维度,可立即派
    │      └─ METRIC-002  Defense Coverage / Task Utility / 真 Detection Latency
    │             └─ SCEN-E2E-001  跑通 §12 旗舰剧本(端到端验收)
    │
