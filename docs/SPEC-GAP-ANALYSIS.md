@@ -3,7 +3,8 @@
 > **日期**: 2026-07-26
 > **作者**: Claude
 > **用途**: 给 Codex 派 v0.7+ 任务前的 spec 审查。逐条对照 `tech-spec.md` 声称的能力与代码实际状态。
-> **基线**: v0.6 · 275 passed / 4 skipped · CI 双绿
+> **基线**: 首次审查时 v0.6 · 275 passed;截至最后更新 v0.7-dev · 316 passed / 4 skipped · CI 双绿
+> **状态**: §1(spec 自身)与 §3(Defender Toolkit)已完成,其余待派
 
 ---
 
@@ -12,7 +13,7 @@
 **方案本身没有方向性错误,问题在三处:**
 
 1. ~~**有五处过期/自相矛盾,会直接误导 Codex**~~ —— **已于 2026-07-26 直接修完**(§1)。
-2. **Defender Toolkit 是关键路径,不是"少一个模块"** —— 评估引擎 6 个维度里有 3 个没它就**测不出来**,§12 的旗舰剧本也跑不通(§3)。
+2. ~~**Defender Toolkit 是关键路径**~~ —— **已于 2026-07-26 实现**(§3)。Defense Coverage 10/10,Task Utility 52/54。实现过程推翻了 §12 暗示的「工具名白名单即可」。
 3. **攻击面覆盖 5/8 大类**,缺的 3 类(Memory Poison / Plan Hijack / Model Theft & DoS)恰好是"Agent 特有"的那部分 —— 而这正是 §2 产品定位里写的差异化卖点(§4)。
 
 ---
@@ -42,16 +43,33 @@
 | 内置脆弱 Agent 集 | ✅ | 5 个 profile |
 | 工具集(文件/shell/HTTP/SQL/邮件) | ⚠️ | 工具**全是 mock 字符串**(`"[mock] shell not executed"`),没有真实执行。对靶场是合理取舍,但 spec 没说明 |
 | 攻击者工具包 | ⚠️ 5/8 | 见 §4 |
-| **防御者工具包** | ❌ **完全没有** | 见 §3 |
+| **防御者工具包** | ✅ 已交付 | `src/ai_agent_lab/defender/` + CLI `defend`,见 §3 |
 | 隔离沙箱(Docker + seccomp) | ⚠️ | 仅 Python 层 monkeypatch。声称范围内的逃逸口已补齐并有测试;子进程 / `ctypes` 原理上够不着,已用测试钉住 |
-| 评估引擎 | ⚠️ 2/6 | 见 §3 表 |
+| 评估引擎 | ⚠️ 2/6 已实现,另 2 个已解锁待接线(`METRIC-002`) | 见 §3 表 |
 | 报告(攻击链可视化 / **修复建议** / 可重放) | ⚠️ | 报告 ✅、可重放 ✅(`--seed`)、**修复建议 ❌**、攻击链可视化仅 correlation 的 ASCII 树 |
 
 ---
 
-## 3. 关键路径:Defender Toolkit(§5.4)
+## 3. 关键路径:Defender Toolkit(§5.4)✅ 已完成 2026-07-26
 
 **这是整个方案里投入产出比最高的一块,因为它同时解锁三个指标和一个旗舰剧本。**
+
+> **实测结果**:Defense Coverage **10/10**、Task Utility **52/54 (96%)**、40 个测试。
+>
+> **实现中推翻了方案的一个假设**:§12 写「Tool Guard 校验 send_email 不在白名单」,
+> 暗示按工具名拉白名单就够。实测**不够** —— `exec_python` / `send_email` /
+> `sql_query` / `read_file` 在良性与攻击两侧都出现,纯工具名白名单要么误杀 4 个
+> 合法任务、要么漏 4 个攻击(原型实测只挡住 6/10)。这恰好解释了 §5.4 为什么
+> 要列四个组件:区分二者的是**参数、请求措辞、流出内容**,不是工具名。
+>
+> **Task Utility 刻意不是 100%**:被拦的 2 条良性任务应当被拦(脆弱 Agent 把
+> 提问路由成了 shell 命令 / 把相对导入路由成了工作区逃逸)。凑到 100% 只能靠
+> 放宽策略,正是 §6.3 禁止的。原派活单里「54 条全放行」那条验收**是我写错了**,
+> 已在派活单里作废并说明。
+>
+> **附带结论**:检测器与防御器会合理地不一致 —— `../../../../src/utils` 检测器判
+> `safe`(不是攻击),防御器判拦截(违反策略)。两者回答的是不同问题,所以
+> `GuardDecision` 是独立于 `Detection` 的类型,并有测试钉住这个分歧。
 
 §5.5 的 6 个评估维度现状:
 
@@ -59,17 +77,18 @@
 |---|---|---|
 | Attack Success Rate | ✅ | `evaluate_asr()`,50 组合 |
 | False Positive | ✅ | 2026-07-26 补齐,54 条良性语料 |
-| **Defense Coverage** | ❌ **测不了** | 分母是「已阻断攻击」,没有 Defender 就没有「阻断」这个动作 |
-| **Task Utility** | ❌ **测不了** | 需要「合法任务」语料 + 防御开启后仍能完成的判定 |
+| **Defense Coverage** | ⚠️ 已能算(10/10),待接进 ASRReport | `DefenderPipeline` 已提供「阻断」动作 → `METRIC-002` |
+| **Task Utility** | ⚠️ 已能算(52/54),待接进 ASRReport | 语料复用 `benign_corpus()` → `METRIC-002` |
 | Detection Latency | ⚠️ 名不副实 | `MetricRecord.latency_ms` 记的是 `target.run + detect` 的**合计耗时**,不是 spec 定义的「攻击发生 → 告警」延迟 |
 | Cost | ❌ | 无 token / 算力统计。注:judge 已经拿得到 `usage`,接上去成本很低 |
 
-§12 的典型剧本(方案自己给的 end-to-end 验收目标)现在**跑不出来**:
+§12 的典型剧本第 5 步(Tool Guard 阻断)**现已可跑**;第 6 步(把 ASR / Coverage
+写进同一份报告)等 `METRIC-002` 接线。原文:
 
 > 5. Defender Toolkit 拦截:Tool Guard 校验 send_email 不在白名单 → 阻断 + 告警
 > 6. 评估:ASR=0%;Defender Coverage=100%;输出完整证据链
 
-第 5、6 步没有任何代码支撑。**建议把 §12 剧本直接立为 Defender Toolkit 的验收标准** —— 方案里已经写好了预期输出,拿来即用。
+**已把 §12 剧本立为验收标准**,`SCEN-E2E-001` 承接完整闭环。
 
 ---
 
@@ -107,8 +126,8 @@ OWASP 标准剧本(§5.5)清单共 **10 条**(6 条 OWASP + 4 条 Agentic 扩展
 ```
 SPEC-001  改 spec 自身的 5 处过期/矛盾      ✅ 已完成 2026-07-26
    │
-   ├─ DEF-001   Defender Toolkit (4 个组件)   ← 解锁 3 个评估维度,可立即派
-   │      └─ METRIC-002  Defense Coverage / Task Utility / 真 Detection Latency
+   ├─ DEF-001   Defender Toolkit (4 个组件)   ✅ 已完成 2026-07-26
+   │      └─ METRIC-002  Defense Coverage / Task Utility / 真 Detection Latency  ← 已解锁
    │             └─ SCEN-E2E-001  跑通 §12 旗舰剧本(端到端验收)
    │
    ├─ ATTACK-002  Memory Poison + Plan Hijack + Model Theft/DoS
