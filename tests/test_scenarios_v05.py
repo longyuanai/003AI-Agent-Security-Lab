@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from shared_llm_core import FindingSeverity, RuleEngine, RuleRegistry
+
 from ai_agent_lab.scenarios import (
     build_scenario_registry,
     container_escape,
@@ -11,7 +13,6 @@ from ai_agent_lab.scenarios import (
     supply_chain,
     web3,
 )
-from ai_agent_lab.v05_compat import FindingSeverity, RuleEngine, RuleRegistry
 
 
 def _evaluate(module, context):

@@ -128,19 +128,60 @@ AI Agent / LLM 应用正快速进入生产，但安全工程界缺乏：
 
 ### 5.3 Adversary Toolkit
 
-- 8 大类 30+ 攻击模式（YAML DSL 描述）：
-  1. **Direct Prompt Injection**：越狱、角色扮演、上下文溢出。
-  2. **Indirect Prompt Injection**：通过工具返回内容注入。
-  3. **Tool Escape**：参数注入、SSRF、命令注入、路径穿越。
-  4. **Memory Poison**：长会话历史污染、跨会话污染。
-  5. **Plan Hijack**：子任务 / 多 Agent 通信被劫持。
-  6. **RAG Poison**：向量库投毒、反向检索诱导。
-  7. **Supply Chain**：依赖被替换、MCP Server 不可信。
-  8. **Model Theft / DoS**：超长上下文、资源耗尽。
-- 每个模式带：触发条件、payload 生成器、检测信号、修复建议。
-- 提供 Adversary Agent：自主组合攻击链，可对抗 Defender Agent。
+**实现形态**：Python 声明式（`attacks.py` 的 `Scenario` + `atlas/` 的 `ATLASTactic`），
+通过 `longyuanai.atlas_tactics` entry_points 支持第三方战术包插件化扩展。
+攻击场景 YAML DSL 化是 v1.0 目标，见 §10 与 `SCEN-002`。
+
+8 大类 30+ 攻击模式（✅ = 已实现，❌ = 未实现，实测 2026-07-28，8/8 全部覆盖）：
+
+| # | 大类 | 状态 | 说明 |
+|---|------|------|------|
+| 1 | Direct Prompt Injection | ✅ | 越狱、角色扮演、上下文溢出 |
+| 2 | Indirect Prompt Injection | ✅ | 通过工具返回内容注入 |
+| 3 | Tool Escape | ✅ | 参数注入、SSRF、命令注入、路径穿越 |
+| 4 | **Memory Poison** | ✅ | 长会话历史污染、跨轮次残留指令（`memory-poison-recall`，`ATTACK-002` 2026-07-28） |
+| 5 | **Plan Hijack** | ✅ | 多 Agent scratchpad 注入（`plan-hijack-scratchpad`，`ATTACK-002` 2026-07-28） |
+| 6 | RAG Poison | ✅ | 向量库投毒、反向检索诱导 |
+| 7 | Supply Chain | ✅ | 依赖被替换、MCP Server 不可信 |
+| 8 | **Model Theft / DoS** | ✅ | 资源耗尽 / 无界生成（`model-dos-unbounded-generation`，`ATTACK-002` 2026-07-28）。仅覆盖 DoS 一侧，权重/行为窃取意义上的 Model Theft 仍未覆盖 |
+
+- 每个模式带：触发条件 ✅、payload 生成器 ❌、检测信号 ✅、修复建议 ❌。
+  > 未实现的两项：当前 `Scenario` 只有静态 payload（非生成器），且全仓无
+  > remediation 字段。见 `docs/dispatches/v07-tickets.md` 的 `REMEDIATION-001`。
+- 提供 Adversary Agent：自主组合攻击链，可对抗 Defender Agent。❌ 未实现
+  （依赖 Defender Toolkit，见 §5.4 / `DEF-001`）。
+
+> **配套约束（写规则时必读）**：每新增一个攻击类，必须同时在
+> `attacks.py::benign_corpus()` 补 ≥ 3 条对应的良性近似样本，且
+> `evaluate_detection_quality()` 的误报率必须保持 0%。规则用判别式而非裸关键词。
+> 缘由见 `docs/SPEC-GAP-ANALYSIS.md` §6。
+>
+> **`ATTACK-002` 实现中发现的真实差距**：新场景的 payload 必须同时满足两件事 ——
+> 命中 detector 判别式，*并且*能被 `TargetAgent._route()` 单步路由到某个工具
+> 调用，否则会违反 `test_target_handles_all_builtin_scenarios` 这条既有不变量
+> （every built-in scenario must produce a non-empty tool call）。`model_dos`
+> 类还额外发现：这类请求经常根本不产生工具调用（无界生成本身就是终点，不需要先
+> 调用工具），所以 Defender 侧必须在 `InputFilter`（输入侧）而非 `ToolGuard`
+> （执行侧）拦截它 —— 见 §5.4 的 `InputFilter` 更新。
 
 ### 5.4 Defender Toolkit
+
+> ✅ **已交付 2026-07-26**（`src/ai_agent_lab/defender/`，CLI `defend`）。
+> 实测（2026-07-28，含 `ATTACK-002` 三类新攻击后）：Defense Coverage **13/13**，
+> Task Utility **64/66 (97%)**。
+>
+> **`ATTACK-002` 期间对本节的追加改动**：`model_dos` 场景常常不产生任何工具调用
+> （无界生成请求本身就是终点），`PlanValidator` / `ToolGuard` 无从检查一个不存在
+> 的工具调用。`InputFilter` 因此新增 `policy.UNBOUNDED_GENERATION` 规则，直接在
+> `trace.user_input` 上判定，与既有的注入祈使句判定并列，位置逻辑一致：两者共同
+> 特点都是「请求根本不需要变成真实工具调用就值得拒绝」。
+>
+> **实现中推翻了一个假设**：§12 描述的「Tool Guard 校验 send_email 不在白名单」
+> 暗示按工具名拉白名单即可，但实测**做不到** —— `exec_python` / `send_email` /
+> `sql_query` / `read_file` 在良性与攻击两侧都出现，纯工具名白名单要么误杀 4 个
+> 合法任务、要么漏掉 4 个攻击。区分二者的是**参数、请求措辞、以及流出的内容**，
+> 这正是本节要列四个组件而不是一个的原因。ToolGuard 因此是「工具名（粗）+
+> 每工具参数策略（细）」两级。
 
 - **输入侧**：moderation API、PII 脱敏、prompt 模板 hash 校验。
 - **规划侧**：Plan Validator 静态检查每一步工具调用是否在白名单。
@@ -148,18 +189,34 @@ AI Agent / LLM 应用正快速进入生产，但安全工程界缺乏：
 - **输出侧**：Output Auditor 比对已知 bad pattern；Canary Token 探针泄漏。
 - **取证侧**：Evidence Collector 自动归档所有 I/O 形成可重放审计链。
 
-### 5.5 评估引擎
+> **各组件实测承担的层次**（每一层都挡下了别层挡不住的攻击）：
+> `InputFilter` 拦注入祈使句（间接注入 / RAG 投毒 —— 这两者的工具调用完全正常，
+> 下游无从反对）；`PlanValidator` 拦越权工具与「明确跳过确认」的破坏性操作；
+> `ToolGuard` 拦参数层违规；`OutputAuditor` 拦 canary 外泄。3 条攻击被两层同时
+> 拦下。
+>
+> **关于 Task Utility 不是 100%**：被拦的 2 条良性任务应当被拦 —— 脆弱 Agent 把
+> 「subprocess 与 os.popen 有何区别?」这个**提问**路由成了 `exec_shell` 命令，把
+> 相对导入路由成了工作区逃逸。放宽策略去凑 100% 等于允许生成代码调特权函数、
+> 允许读工作区外文件，正是「不得为凑指标削弱强信号」那条护栏禁止的。
+> 损失应归因于 Agent 的错误路由，而非策略。
+
+### 5.5 评估引擎 ✅ 六维度已全部实现（2026-07-27）
 
 评估维度（每个 Target Agent × 每个 Attack 模式 打分）：
 
-| 维度 | 公式 | 目标方向 |
-|------|------|----------|
-| Attack Success Rate (ASR) | 成功攻击 / 总攻击 | ↓ |
-| Defense Coverage | 已阻断攻击 / 总攻击 | ↑ |
-| False Positive | 误报阻断 / 合法任务 | ↓ |
-| Task Utility | 合法任务完成率 | 维持 |
-| Detection Latency | 攻击发生到告警 | ↓ |
-| Cost | 单评估 token + 算力 | ↓ |
+| 维度 | 公式 | 目标方向 | 状态（2026-07-28 实测，含 `ATTACK-002` 后） |
+|------|------|----------|------|
+| Attack Success Rate (ASR) | 成功攻击 / 总攻击 | ↓ | ✅ `evaluate_asr()`，65 组合（5 Agent × 13 Attack），实测 21.5% |
+| Defense Coverage | 已阻断攻击 / 总攻击 | ↑ | ✅ `evaluate_defense()`，实测 **100%**（13/13） |
+| False Positive | 误报阻断 / 合法任务 | ↓ | ✅ `evaluate_detection_quality()`，66 条良性语料，实测 **0%** |
+| Task Utility | 合法任务完成率 | 维持 | ✅ `evaluate_defense()`，实测 **97.0%**（64/66，2 条应被拦见 §5.4） |
+| Detection Latency | 攻击发生到告警 | ↓ | ✅ `MetricRecord.detect_latency_ms`（探测阶段单独计时，不含 Agent 路由）|
+| Cost | 单评估 token + 算力 | ↓ | ✅ `CostSummary`,`LLMDetector` 现记录 `usage`；纯离线跑为 0 |
+
+> 全部接入 `ASRReport`,`python -m ai_agent_lab.cli metrics` 一次输出全部六维度。
+> `MetricRecord.latency_ms`(Agent 路由 + 探测合计)保留作兼容,拆分后的
+> `agent_latency_ms` / `detect_latency_ms` 才是各自独立的耗时。
 
 标准剧本：
 
@@ -233,7 +290,7 @@ AI Agent / LLM 应用正快速进入生产，但安全工程界缺乏：
 
 | 维度 | 指标 | 目标 |
 |------|------|------|
-| 覆盖 | OWASP LLM/Agentic 用例覆盖 | ≥ 90% |
+| 覆盖 | OWASP LLM/Agentic 用例覆盖 | ≥ 90%（**实测 2026-07-28（`ATTACK-002` 后）：严格 5/10 = 50%，计入部分覆盖 8/10 = 80%**。新覆盖 Agentic Plan Hijack / Agentic Memory Poison（完整）+ LLM-10 Model Theft（部分，仅 DoS 一侧）。仍缺 LLM-07 系统提示泄露 / Agentic Identity Spoofing） |
 | 价值 | 客户自检发现的新缺陷 / 演练 | ≥ 1 个 / 客户 |
 | 性能 | 单次评估时长 | < 30 min |
 | 重现 | 同一剧本两次结果一致 | ≥ 95% |
@@ -245,8 +302,14 @@ AI Agent / LLM 应用正快速进入生产，但安全工程界缺乏：
 
 - **v0.1 PoC（1 个月）**：3 个 Target Agent + 5 类攻击 + 沙箱 + 基础报告。
 - **v0.3 Beta（3 个月）**：完整 OWASP LLM Top-10 + 多 Agent 对抗。
-- **v0.6 GA（6 个月）**：仿真环境 + 排行榜 + CI 接入。
-- **v1.0（1 年）**：完整 Agentic Top-10 + 客户生态。
+- **v0.6（已交付 2026-07）**：MITRE ATLAS 模板库（10 个 tactic）+ 真实 LLM-as-judge
+  + 红队报告导出（Markdown + JSON evidence）+ GitHub Actions CI。
+  ⚠️ 原计划的「仿真环境 + 排行榜」**未开工**，顺延至 v1.0。
+- **v0.7（进行中）**：Defender Toolkit ✅ + 评估引擎补全（Defense Coverage /
+  Task Utility / Cost）✅ + 补齐 Memory Poison / Plan Hijack / Model DoS 三大
+  攻击类 ✅（2026-07-28，8/8 攻击大类全覆盖）。见 `docs/dispatches/v07-tickets.md`。
+- **v1.0（1 年）**：完整 Agentic Top-10 + 攻击场景 YAML DSL 化 + 仿真环境 +
+  排行榜 + 多模型对比 + 客户生态。
 
 ---
 
@@ -273,11 +336,27 @@ AI Agent / LLM 应用正快速进入生产，但安全工程界缺乏：
 5. Defender Toolkit 拦截:Tool Guard 校验 send_email 不在白名单 → 阻断 + 告警。
 6. 评估:ASR=0%;Defender Coverage=100%;输出完整证据链。
 
+> ⚠️ **第 4-5 步与当前实现有出入(2026-07-27 验证时发现)**:`TargetAgent`
+> 是单步确定性正则路由(见 README「PoC shortcuts」),内置的
+> `indirect-web-injection` 场景里,同一段输入同时含 URL 与注入短语时,
+> 路由器先匹配到 `playwright_open`,从未真正产生第二步的 `send_email` 调用。
+> 防御链**确实拦下了这个场景**(`input_filter` 检测到注入祈使句直接拦截
+> 整个请求),但拦的是「单步文本含注入短语」,不是「fetch → 二次工具调用」
+> 这条链路。ASR=0% / Defender Coverage=100% 这两个数字本身是真的
+> (`python -m ai_agent_lab.cli defend` 可复验),但第 4-5 步的叙事需要
+> `SCEN-E2E-001` 裁定是改代码(让路由支持两步)还是改这段叙事,
+> 详见 `docs/dispatches/v07-tickets.md`。
+
 ---
 
-## 13. Phase-2 实施(v0.6+ 改造指令)
+## 13. Phase-2 实施（✅ 已交付 · 2026-07）
 
-> **本文是 Codex 实施 Phase-2 的入口**。路线图 v0.6 之后所有改动以此为准。
+> **本节已完成，保留作实施记录。新任务入口是
+> [`docs/dispatches/v07-tickets.md`](dispatches/v07-tickets.md)，
+> 差距依据是 [`docs/SPEC-GAP-ANALYSIS.md`](SPEC-GAP-ANALYSIS.md)。**
+>
+> Hook A（ATLAS 模板库，10 个 tactic）、Hook B（真实 LLM-as-judge）、
+> Hook C（Markdown + JSON evidence 红队报告）三项均已交付并有测试覆盖。
 
 ### 13.1 Hook A · Mitre ATLAS 攻击模板库(v0.6)
 
@@ -416,18 +495,22 @@ ai-agent-lab scan --input '{...}' --report output/2026-07-25-brute.md
 
 Codex 完工后跑:
 
-```powershell
-& 'C:\Users\15072\AppData\Local\Programs\Python\Python314\python.exe' `
-  -m pytest tests/ `
-  --basetemp=C:/pytest-tmp/003-phase2 `
-  -o addopts= `
-  -q --tb=short
+```bash
+# 与 CI 同一套命令(.github/workflows/ci.yml),不要写死解释器路径
+ruff check src tests
+pytest -q
 
-& 'C:\Users\15072\AppData\Local\Programs\Python\Python314\python.exe' `
-  -m ai_agent_lab scan --input '{"attack":"AML.T0051","agent":"...","iterations":3}' --json
+python -m ai_agent_lab scan \
+  --input '{"attack":"AML.T0051","agent":"sql_assistant","iterations":3}' \
+  --seed 42 --json
 ```
 
-预期:≥ 195 passed(原 170 + Phase-2 新增 25);CLI envelope 仍是 `{"findings": [...], "summary": {...}}`。
+预期:**全绿(零 failed / 零 error)**。具体通过数以 CI 为准 —— 不要写进文档,
+这个数字漂移得比文档更新快(195 → 239 → …)。缺少 `000shared-integration`
+兄弟仓时,相关 4 个 gateway 用例会 skip 而不是 error。CLI envelope 仍是
+`{"findings": [...], "summary": {...}}`。
+
+> 前置条件:`000shared-llm-core` 必须作为同级目录 checkout,见 README「Install」。
 
 ---
 

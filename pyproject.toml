@@ -1,29 +1,26 @@
-[tool.poetry]
+[project]
 name = "ai-agent-lab"
-version = "0.1.0"
-description = "AI Agent security range — vulnerable target agents + attack scenarios + detection (PoC happy path)"
-authors = ["longyuanai"]
+version = "0.6.0"
+description = "AI Agent security range — vulnerable target agents + attack scenarios + detection"
+authors = [{ name = "longyuanai" }]
 license = "MIT"
 readme = "README.md"
-packages = [{ include = "ai_agent_lab", from = "src" }]
-include = ["src/ai_agent_lab/report/template.md"]
+requires-python = ">=3.11,<4.0"
+dependencies = [
+    "shared-llm-core",
+    "click>=8.1.7,<9.0",
+    "rich>=13.7.1,<14.0",
+    "jinja2>=3.1.6,<4.0",
+]
 
-[tool.poetry.dependencies]
-python = "^3.11"
-shared-llm-core = { path = "../000shared-llm-core", develop = true }
-click = "^8.1.7"
-rich = "^13.7.1"
-openai = ">=2.48,<3.0"
-jinja2 = "^3.1.6"
+[project.optional-dependencies]
+# Only needed for `LLM_PROVIDER=openai`; the lab runs offline without it.
+openai = ["openai>=2.48,<3.0"]
 
-[tool.poetry.group.dev.dependencies]
-pytest = "^8.2.0"
-pytest-mock = "^3.14.0"
+[project.scripts]
+ai-agent-lab = "ai_agent_lab.cli:main"
 
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
-
+# Loaded at runtime by ai_agent_lab.atlas.registry.load_plugin_tactics().
 [project.entry-points."longyuanai.atlas_tactics"]
 "AML.T0051" = "ai_agent_lab.atlas.aml_t0051:TACTIC"
 "AML.T0051.001" = "ai_agent_lab.atlas.aml_t0051:DIRECT_TACTIC"
@@ -36,6 +33,49 @@ build-backend = "poetry.core.masonry.api"
 "AML.T0031" = "ai_agent_lab.atlas.aml_t0031:TACTIC"
 "AML.T0040" = "ai_agent_lab.atlas.aml_t0040:TACTIC"
 
+[tool.poetry]
+packages = [{ include = "ai_agent_lab", from = "src" }]
+include = ["src/ai_agent_lab/report/template.md"]
+
+# Source override for the sibling checkout. `dependencies` above keeps the
+# requirement declared for non-poetry installers; see README for CI layout.
+[tool.poetry.dependencies]
+shared-llm-core = { path = "../000shared-llm-core", develop = true }
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.2.0"
+pytest-mock = "^3.14.0"
+ruff = "^0.5.0"
+
+[build-system]
+requires = ["poetry-core>=2.0"]
+build-backend = "poetry.core.masonry.api"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# `pythonpath` lets the suite run straight from a checkout, so a broken or
+# missing editable install cannot silently take all 200+ tests down with it.
+pythonpath = ["src"]
 addopts = "--basetemp=.pytest-tmp"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint.per-file-ignores]
+# The TYPE_CHECKING block mirrors the lazy `_EXPORTS` table so type checkers
+# and IDEs can still see the real symbols; those imports are unused at runtime
+# by design.
+"src/ai_agent_lab/__init__.py" = ["F401"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "SIM"]
+ignore = [
+    "E501",
+    # SandboxViolation / SandboxTimeout are documented public names; renaming
+    # them to *Error would be a breaking API change for no benefit.
+    "N818",
+    # `(str, Enum)` rather than `StrEnum`, matching the shared-llm-core
+    # cross-product Finding/Verdict contract.
+    "UP042",
+]

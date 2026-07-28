@@ -10,6 +10,12 @@ _Generated at {{ generated_at }}_
 - Judge mode: **{{ summary.judge_mode }}**
 - Default severity: **{{ tactic.severity_default.value }}**
 - MITRE reference: {{ tactic.mitre_url }}
+{% if seed is none %}
+- Reproducible: **no** — payload order came from the system RNG. Re-run with
+  `--seed <int>` to make this report regenerable.
+{% else %}
+- Reproducible: **yes** — re-run with `--seed {{ seed }}`
+{% endif %}
 
 ## Iteration Results
 

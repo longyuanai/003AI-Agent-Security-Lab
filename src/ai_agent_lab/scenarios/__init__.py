@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from shared_llm_core import Finding, RuleEngine, RuleRegistry
+
 from ai_agent_lab.scenarios import (
     container_escape,
     llm_chain,
@@ -9,8 +11,6 @@ from ai_agent_lab.scenarios import (
     supply_chain,
     web3,
 )
-from ai_agent_lab.v05_compat import Finding, RuleEngine, RuleRegistry
-
 
 SCENARIO_MODULES = (mcp, web3, llm_chain, container_escape, supply_chain)
 

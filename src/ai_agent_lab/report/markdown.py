@@ -2,14 +2,15 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 from jinja2 import Environment, StrictUndefined
 
+from ai_agent_lab.datatypes import report_now
 from ai_agent_lab.runner import AtlasRun
-
 
 _TEMPLATE_PATH = Path(__file__).with_name("template.md")
 
@@ -21,8 +22,10 @@ def default_report_path(
 ) -> Path:
     """Return a Windows-safe ISO timestamp report path."""
 
-    when = generated_at or datetime.now()
-    timestamp = when.isoformat(timespec="seconds").replace(":", "-")
+    when = generated_at or report_now()
+    # Local wall-clock only: the UTC offset belongs in the report body, not in
+    # a filename, where "+08:00" would sanitise into a confusing "+08-00".
+    timestamp = when.strftime("%Y-%m-%dT%H-%M-%S")
     return Path("output") / f"{timestamp}-{attack_id}.md"
 
 
@@ -60,6 +63,7 @@ def render_red_team_markdown(
         generated_at=generated_at,
         tactic=run.tactic,
         agent=run.agent,
+        seed=run.seed,
         summary=envelope.get("summary", {}),
         findings=envelope.get("findings", []),
         errors=envelope.get("errors", []),

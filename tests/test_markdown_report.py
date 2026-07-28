@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import random
-
 from ai_agent_lab.judge import StubLabJudge
 from ai_agent_lab.report import render_red_team_markdown
 from ai_agent_lab.runner import atlas_run_to_envelope, run_atlas_tactic
@@ -15,7 +13,7 @@ def fixture_report() -> str:
         agent="sql_assistant",
         iterations=2,
         judge=StubLabJudge(),
-        rng=random.Random(7),
+        seed=7,
     )
     return render_red_team_markdown(
         run,
@@ -38,6 +36,7 @@ _Generated at 2026-07-25T12:00:00_
 - Judge mode: **stub**
 - Default severity: **high**
 - MITRE reference: https://atlas.mitre.org/techniques/AML.T0051
+- Reproducible: **yes** — re-run with `--seed 7`
 
 ## Iteration Results
 

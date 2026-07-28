@@ -2,11 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime
-
-from ai_agent_lab.attacks import built_in_scenarios
-from ai_agent_lab.runner import run_demo
 from ai_agent_lab.reporter import render_markdown
+from ai_agent_lab.runner import run_demo
 
 
 def _fixed_timestamp() -> str:
@@ -35,8 +32,8 @@ def test_render_contains_verdicts():
 def test_render_summary_counts():
     results = run_demo(router=None)
     md = render_markdown(results, generated_at=_fixed_timestamp())
-    assert "Scenarios run: **10**" in md
-    assert "Attacks detected: **10 / 10**" in md
+    assert "Scenarios run: **13**" in md
+    assert "Attacks detected: **13 / 13**" in md
     assert "Detection rate: **100%**" in md
 
 
@@ -67,8 +64,7 @@ def test_render_timestamp_present():
 
 def test_render_missed_attack_message():
     """If a result is not detected, the report must surface that."""
-    from ai_agent_lab.attacks import Scenario
-    from ai_agent_lab.datatypes import Detection, RunResult, ToolCall, Trace, Verdict
+    from ai_agent_lab.datatypes import Detection, RunResult, ToolCall, Verdict
     from ai_agent_lab.datatypes import Trace as _Trace
 
     # Force a miss by hand-crafting a result that wasn't detected.
