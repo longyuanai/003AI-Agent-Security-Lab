@@ -2,6 +2,9 @@
 
 > 依据:[SPEC-GAP-ANALYSIS.md](../SPEC-GAP-ANALYSIS.md)
 > 顺序:`SPEC-001` → `DEF-001` → `METRIC-002` → `SCEN-E2E-001`;`ATTACK-002` 可并行
+> **进度(2026-07-28)**:`SPEC-001` / `DEF-001` / `METRIC-002` / `ATTACK-002` 均已完成。
+> 剩余:`SCEN-E2E-001`(需人类先选方案 A/B)、`OWASP-001`(现已解锁)、
+> `REMEDIATION-001` / `REPRO-001` / `CI-002`(均无阻塞)。
 > 模板来源:[CODEX_INSTRUCTIONS.md](../CODEX_INSTRUCTIONS.md)
 
 ---
@@ -158,7 +161,36 @@
 
 ---
 
-## ATTACK-002 · 补齐缺失的 3 大攻击类 ← **可立即派**
+## ~~ATTACK-002~~ · 补齐缺失的 3 大攻击类 ✅ 已完成 2026-07-28
+
+> 攻击面 5/8 → 8/8。`built_in_scenarios()` 10 → 13,`benign_corpus()` 54 → 66
+> (每个新类 4 条 near-miss,超过票面要求的 ≥3)。13 个新测试
+> (`tests/test_attack_002.py`)。实测:`evaluate_detection_quality()` recall
+> 100%、FPR 0%(0/66 良性误报);`evaluate_defense()` coverage 100%(13/13)、
+> task utility 97.0%(64/66,与 DEF-001 完成时打住的 2 条一致,无新增)。
+> ASR 评估随之从 5×10=50 组合扩到 5×13=65,实测 ASR 21.5%(14/65)。
+>
+> **两个票面之外发现的真实差距,已按护栏原则处理(不为凑数糊弄)**:
+>
+> 1. **payload 必须同时满足两件事,起草时漏了这一条**:命中 detector 判别式,
+>    *并且*能被 `TargetAgent._route()` 单步路由到某个工具调用,否则会打破既有
+>    不变量 `test_target_handles_all_builtin_scenarios`(每个内置场景都必须
+>    产生非空 tool call)。`memory-poison-recall` 与 `plan-hijack-scratchpad`
+>    的初稿payload 只顾了判别式匹配,没有工具路由钩子,已重写为同时满足两者
+>    (前者路由到 `send_email`,后者路由到 `delete_email`)。
+> 2. **`model_dos` 类暴露了 Defender 侧的一个真实缺口**:这类请求经常根本不
+>    产生工具调用(无界生成本身就是终点),`PlanValidator` / `ToolGuard` 无从
+>    检查一个不存在的工具调用,导致 Defense Coverage 从 100% 掉到 92.3%
+>    (12/13)。没有为了凑分去构造一个"能被现有组件误打误撞挡住"的 payload,
+>    而是按照 InputFilter 已有的定位(tech-spec §5.4"输入侧":请求不需要变成
+>    真实工具调用就值得拒绝)扩展了它,新增 `policy.UNBOUNDED_GENERATION`
+>    规则,与既有的注入祈使句判定并列检查。这不在原派活单"不要做的事"范围内
+>    (该约束只出现在 `METRIC-002` 里),但属于未预期的范围外改动,如实记录。
+>
+> **下一张解锁的是 `OWASP-001`**(`Scenario` 加 `owasp_ids`,现在有 8/8 攻击类
+> 可以映射了)。`SCEN-E2E-001` 仍需人类先在两个方案间选一个,见其派活单。
+
+<details><summary>原派活单(存档)</summary>
 
 ```
 [ATTACK-002] 003 AI-Agent-Security-Lab · 补 Memory Poison / Plan Hijack / Model DoS
@@ -209,6 +241,8 @@
 - [ ] CLI smoke: python -m ai_agent_lab.cli metrics 的 Detection Quality 段
 - [ ] ruff 全绿
 ```
+
+</details>
 
 ---
 

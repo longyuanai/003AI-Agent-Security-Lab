@@ -32,8 +32,8 @@ def test_render_contains_verdicts():
 def test_render_summary_counts():
     results = run_demo(router=None)
     md = render_markdown(results, generated_at=_fixed_timestamp())
-    assert "Scenarios run: **10**" in md
-    assert "Attacks detected: **10 / 10**" in md
+    assert "Scenarios run: **13**" in md
+    assert "Attacks detected: **13 / 13**" in md
     assert "Detection rate: **100%**" in md
 
 

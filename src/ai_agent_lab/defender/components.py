@@ -50,23 +50,35 @@ def _allow(component: str) -> GuardDecision:
 
 @dataclass
 class InputFilter:
-    """Refuses requests that try to override the operator's instructions.
+    """Refuses requests before anything downstream sees them.
 
-    Covers tech-spec §5.4 "输入侧". Catches the injection families whose
-    payload is the *phrasing* -- indirect injection and RAG poisoning arrive as
-    perfectly ordinary tool calls, so nothing downstream would object.
+    Covers tech-spec §5.4 "输入侧". Two families live here because both share
+    the same property: the request never has to become a real tool call to be
+    worth refusing. Instruction-override attempts (indirect injection, RAG
+    poisoning) arrive as perfectly ordinary tool calls, so nothing downstream
+    would object. Unbounded-generation requests (model DoS) often route to no
+    tool at all -- there is nothing for a tool guard to inspect -- so refusing
+    them has to happen here or not at all.
     """
 
     component: str = "input_filter"
 
     def check(self, trace: Trace) -> GuardDecision:
-        match = policy.INJECTION_IMPERATIVE.search(trace.user_input)
-        if match:
+        override = policy.INJECTION_IMPERATIVE.search(trace.user_input)
+        if override:
             return GuardDecision(
                 allowed=False,
                 component=self.component,
                 reason="request attempts to override prior instructions",
-                evidence=match.group(0),
+                evidence=override.group(0),
+            )
+        unbounded = policy.UNBOUNDED_GENERATION.search(trace.user_input)
+        if unbounded:
+            return GuardDecision(
+                allowed=False,
+                component=self.component,
+                reason="request asks for unbounded or resource-exhausting generation",
+                evidence=unbounded.group(0),
             )
         return _allow(self.component)
 

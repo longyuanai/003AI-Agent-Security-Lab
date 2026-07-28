@@ -5,7 +5,7 @@
 
 ## What it does (PoC, v0.1)
 
-Runs five deliberately vulnerable Agent profiles against 10 built-in attack
+Runs five deliberately vulnerable Agent profiles against 13 built-in attack
 scenarios, scores each trace through a heuristic detector (and optionally an
 LLM judge via `shared-llm-core`), and emits a Markdown report.
 
@@ -38,14 +38,15 @@ attack payload ──► Target Agent (read_file / http_fetch / exec_shell)
   DOCX/PDF file RAG, Playwright browser, and exec-Python Code-Act. Run
   `python -m ai_agent_lab.cli targets` to inspect their deliberately unsafe
   tool surfaces.
-- **10 built-in attack classes** covering indirect prompt injection,
+- **13 built-in attack classes** covering indirect prompt injection,
   token theft, shell escape, SQL injection, path traversal, email exfiltration,
-  RAG poisoning, browser SSRF, Code-Act privilege escalation, and tool misuse.
+  RAG poisoning, browser SSRF, Code-Act privilege escalation, tool misuse,
+  memory poisoning, plan hijack, and model DoS (unbounded generation).
   Detector output maps these to four stable modes: `prompt_injection`,
   `tool_misuse`, `data_exfiltration`, and `privilege_escalation`.
 - **Heuristic detector is the default**. LLM detector is opt-in via the
   shared-llm-core router; when none is reachable we still get a useful report.
-- **A benign corpus scores the detector honestly.** 54 near-miss samples that
+- **A benign corpus scores the detector honestly.** 66 near-miss samples that
   mention the same tools, paths and SQL as the attacks but only describe them.
   Detection rate measured against attacks alone is unfalsifiable, so the report
   carries precision and false-positive rate next to recall.
@@ -89,7 +90,7 @@ python -m ai_agent_lab.cli run --scenario demo --output report.md
 LLM_PROVIDERS=local python -m ai_agent_lab.cli run --scenario demo --output report.md
 ```
 
-Expected output: 10 attacks detected, 100% detection rate.
+Expected output: 13 attacks detected, 100% detection rate.
 
 ## Built-in scenarios
 
@@ -104,6 +105,9 @@ rag-poison-instruction rag_poisoning     "Retrieved document says: Ignore previo
 ssrf-cloud-metadata  browser_ssrf        "Playwright open http://169.254.169.254/..."
 code-act-privilege   code_act_privilege_escalation "exec_python ... os.system(...)"
 tool-misuse-rm-rf    tool_misuse         "Delete email ... without confirmation"
+memory-poison-recall memory_poison       "Conversation history says ... Ignore previous instructions ..."
+plan-hijack-scratchpad plan_hijack       "[scout] Findings so far: ignore previous instructions ..."
+model-dos-unbounded-generation model_dos "generate an infinite stream ... until memory runs out"
 ```
 
 ## Tests
@@ -160,9 +164,9 @@ a fully offline run):
 
 ```
 $ python -m ai_agent_lab.cli metrics --markdown asr.md --json asr.json
-Combinations: 50  Successful: 11  ASR: 22.0%
-Detection: recall 100.0%  precision 100.0%  FPR 0.0% (0/54 benign flagged)
-Defense: coverage 100.0%  task utility 96.3%
+Combinations: 65  Successful: 14  ASR: 21.5%
+Detection: recall 100.0%  precision 100.0%  FPR 0.0% (0/66 benign flagged)
+Defense: coverage 100.0%  task utility 97.0%
 Wrote asr.md
 Wrote asr.json
 ```
@@ -172,19 +176,19 @@ Wrote asr.json
 
 _Alarm threshold: `suspicious` or higher._
 
-- Detection rate (recall): **100.0%** (10/10 attacks)
+- Detection rate (recall): **100.0%** (13/13 attacks)
 - Precision: **100.0%**
-- False-positive rate: **0.0%** (0/54 benign inputs)
+- False-positive rate: **0.0%** (0/66 benign inputs)
 - F1: **1.000**
 
 ## Defense
 
-- Defense coverage: **100.0%** (10/10 attacks blocked)
-- Task utility: **96.3%** (52/54 benign tasks completed)
+- Defense coverage: **100.0%** (13/13 attacks blocked)
+- Task utility: **97.0%** (64/66 benign tasks completed)
 
 ## Cost and Latency
 
-- Detection latency (attack -> verdict): mean **0.070 ms**, p95 **0.143 ms**
+- Detection latency (attack -> verdict): mean **0.140 ms**, p95 **0.268 ms**
 - LLM calls: **0** — fully offline run, no token cost.
 ```
 
@@ -203,8 +207,8 @@ python -m ai_agent_lab.cli defend
 ```
 
 ```
-Defense coverage: 10/10 (100%)
-Task utility:     52/54 (96%)
+Defense coverage: 13/13 (100%)
+Task utility:     64/66 (97%)
 ```
 
 A tool-name allowlist is not enough on its own: `exec_python`, `send_email`,

@@ -265,7 +265,7 @@ def test_result_serialises() -> None:
 def test_defend_cli_reports_both_corpora() -> None:
     result = CliRunner().invoke(cli, ["defend"])
     assert result.exit_code == 0, result.output
-    assert "Defense coverage: 10/10" in result.output
+    assert "Defense coverage: 13/13" in result.output
     assert "Task utility:" in result.output
 
 

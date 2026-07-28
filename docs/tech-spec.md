@@ -132,18 +132,18 @@ AI Agent / LLM 应用正快速进入生产，但安全工程界缺乏：
 通过 `longyuanai.atlas_tactics` entry_points 支持第三方战术包插件化扩展。
 攻击场景 YAML DSL 化是 v1.0 目标，见 §10 与 `SCEN-002`。
 
-8 大类 30+ 攻击模式（✅ = 已实现，❌ = 未实现，实测 2026-07-26）：
+8 大类 30+ 攻击模式（✅ = 已实现，❌ = 未实现，实测 2026-07-28，8/8 全部覆盖）：
 
 | # | 大类 | 状态 | 说明 |
 |---|------|------|------|
 | 1 | Direct Prompt Injection | ✅ | 越狱、角色扮演、上下文溢出 |
 | 2 | Indirect Prompt Injection | ✅ | 通过工具返回内容注入 |
 | 3 | Tool Escape | ✅ | 参数注入、SSRF、命令注入、路径穿越 |
-| 4 | **Memory Poison** | ❌ | 长会话历史污染、跨会话污染 → `ATTACK-002` |
-| 5 | **Plan Hijack** | ❌ | 子任务 / 多 Agent 通信被劫持 → `ATTACK-002` |
+| 4 | **Memory Poison** | ✅ | 长会话历史污染、跨轮次残留指令（`memory-poison-recall`，`ATTACK-002` 2026-07-28） |
+| 5 | **Plan Hijack** | ✅ | 多 Agent scratchpad 注入（`plan-hijack-scratchpad`，`ATTACK-002` 2026-07-28） |
 | 6 | RAG Poison | ✅ | 向量库投毒、反向检索诱导 |
 | 7 | Supply Chain | ✅ | 依赖被替换、MCP Server 不可信 |
-| 8 | **Model Theft / DoS** | ❌ | 超长上下文、资源耗尽 → `ATTACK-002` |
+| 8 | **Model Theft / DoS** | ✅ | 资源耗尽 / 无界生成（`model-dos-unbounded-generation`，`ATTACK-002` 2026-07-28）。仅覆盖 DoS 一侧，权重/行为窃取意义上的 Model Theft 仍未覆盖 |
 
 - 每个模式带：触发条件 ✅、payload 生成器 ❌、检测信号 ✅、修复建议 ❌。
   > 未实现的两项：当前 `Scenario` 只有静态 payload（非生成器），且全仓无
@@ -155,11 +155,26 @@ AI Agent / LLM 应用正快速进入生产，但安全工程界缺乏：
 > `attacks.py::benign_corpus()` 补 ≥ 3 条对应的良性近似样本，且
 > `evaluate_detection_quality()` 的误报率必须保持 0%。规则用判别式而非裸关键词。
 > 缘由见 `docs/SPEC-GAP-ANALYSIS.md` §6。
+>
+> **`ATTACK-002` 实现中发现的真实差距**：新场景的 payload 必须同时满足两件事 ——
+> 命中 detector 判别式，*并且*能被 `TargetAgent._route()` 单步路由到某个工具
+> 调用，否则会违反 `test_target_handles_all_builtin_scenarios` 这条既有不变量
+> （every built-in scenario must produce a non-empty tool call）。`model_dos`
+> 类还额外发现：这类请求经常根本不产生工具调用（无界生成本身就是终点，不需要先
+> 调用工具），所以 Defender 侧必须在 `InputFilter`（输入侧）而非 `ToolGuard`
+> （执行侧）拦截它 —— 见 §5.4 的 `InputFilter` 更新。
 
 ### 5.4 Defender Toolkit
 
 > ✅ **已交付 2026-07-26**（`src/ai_agent_lab/defender/`，CLI `defend`）。
-> 实测：Defense Coverage **10/10**，Task Utility **52/54 (96%)**。
+> 实测（2026-07-28，含 `ATTACK-002` 三类新攻击后）：Defense Coverage **13/13**，
+> Task Utility **64/66 (97%)**。
+>
+> **`ATTACK-002` 期间对本节的追加改动**：`model_dos` 场景常常不产生任何工具调用
+> （无界生成请求本身就是终点），`PlanValidator` / `ToolGuard` 无从检查一个不存在
+> 的工具调用。`InputFilter` 因此新增 `policy.UNBOUNDED_GENERATION` 规则，直接在
+> `trace.user_input` 上判定，与既有的注入祈使句判定并列，位置逻辑一致：两者共同
+> 特点都是「请求根本不需要变成真实工具调用就值得拒绝」。
 >
 > **实现中推翻了一个假设**：§12 描述的「Tool Guard 校验 send_email 不在白名单」
 > 暗示按工具名拉白名单即可，但实测**做不到** —— `exec_python` / `send_email` /
@@ -190,12 +205,12 @@ AI Agent / LLM 应用正快速进入生产，但安全工程界缺乏：
 
 评估维度（每个 Target Agent × 每个 Attack 模式 打分）：
 
-| 维度 | 公式 | 目标方向 | 状态（2026-07-27 实测） |
+| 维度 | 公式 | 目标方向 | 状态（2026-07-28 实测，含 `ATTACK-002` 后） |
 |------|------|----------|------|
-| Attack Success Rate (ASR) | 成功攻击 / 总攻击 | ↓ | ✅ `evaluate_asr()`，50 组合，实测 22.0% |
-| Defense Coverage | 已阻断攻击 / 总攻击 | ↑ | ✅ `evaluate_defense()`，实测 **100%**（10/10） |
-| False Positive | 误报阻断 / 合法任务 | ↓ | ✅ `evaluate_detection_quality()`，54 条良性语料，实测 **0%** |
-| Task Utility | 合法任务完成率 | 维持 | ✅ `evaluate_defense()`，实测 **96.3%**（52/54，2 条应被拦见 §5.4） |
+| Attack Success Rate (ASR) | 成功攻击 / 总攻击 | ↓ | ✅ `evaluate_asr()`，65 组合（5 Agent × 13 Attack），实测 21.5% |
+| Defense Coverage | 已阻断攻击 / 总攻击 | ↑ | ✅ `evaluate_defense()`，实测 **100%**（13/13） |
+| False Positive | 误报阻断 / 合法任务 | ↓ | ✅ `evaluate_detection_quality()`，66 条良性语料，实测 **0%** |
+| Task Utility | 合法任务完成率 | 维持 | ✅ `evaluate_defense()`，实测 **97.0%**（64/66，2 条应被拦见 §5.4） |
 | Detection Latency | 攻击发生到告警 | ↓ | ✅ `MetricRecord.detect_latency_ms`（探测阶段单独计时，不含 Agent 路由）|
 | Cost | 单评估 token + 算力 | ↓ | ✅ `CostSummary`,`LLMDetector` 现记录 `usage`；纯离线跑为 0 |
 
@@ -275,7 +290,7 @@ AI Agent / LLM 应用正快速进入生产，但安全工程界缺乏：
 
 | 维度 | 指标 | 目标 |
 |------|------|------|
-| 覆盖 | OWASP LLM/Agentic 用例覆盖 | ≥ 90%（**实测 2026-07-26：严格 3/10 = 30%，计入部分覆盖 5/10 = 50%**。缺 LLM-07 系统提示泄露 / LLM-10 Model Theft / Plan Hijack / Memory Poison / Identity Spoofing） |
+| 覆盖 | OWASP LLM/Agentic 用例覆盖 | ≥ 90%（**实测 2026-07-28（`ATTACK-002` 后）：严格 5/10 = 50%，计入部分覆盖 8/10 = 80%**。新覆盖 Agentic Plan Hijack / Agentic Memory Poison（完整）+ LLM-10 Model Theft（部分，仅 DoS 一侧）。仍缺 LLM-07 系统提示泄露 / Agentic Identity Spoofing） |
 | 价值 | 客户自检发现的新缺陷 / 演练 | ≥ 1 个 / 客户 |
 | 性能 | 单次评估时长 | < 30 min |
 | 重现 | 同一剧本两次结果一致 | ≥ 95% |
@@ -290,9 +305,9 @@ AI Agent / LLM 应用正快速进入生产，但安全工程界缺乏：
 - **v0.6（已交付 2026-07）**：MITRE ATLAS 模板库（10 个 tactic）+ 真实 LLM-as-judge
   + 红队报告导出（Markdown + JSON evidence）+ GitHub Actions CI。
   ⚠️ 原计划的「仿真环境 + 排行榜」**未开工**，顺延至 v1.0。
-- **v0.7（规划中）**：Defender Toolkit + 评估引擎补全（Defense Coverage /
-  Task Utility / Cost）+ 补齐 Memory Poison / Plan Hijack / Model DoS 三大攻击类。
-  见 `docs/dispatches/v07-tickets.md`。
+- **v0.7（进行中）**：Defender Toolkit ✅ + 评估引擎补全（Defense Coverage /
+  Task Utility / Cost）✅ + 补齐 Memory Poison / Plan Hijack / Model DoS 三大
+  攻击类 ✅（2026-07-28，8/8 攻击大类全覆盖）。见 `docs/dispatches/v07-tickets.md`。
 - **v1.0（1 年）**：完整 Agentic Top-10 + 攻击场景 YAML DSL 化 + 仿真环境 +
   排行榜 + 多模型对比 + 客户生态。
 

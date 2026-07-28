@@ -3,8 +3,8 @@
 > **日期**: 2026-07-26
 > **作者**: Claude
 > **用途**: 给 Codex 派 v0.7+ 任务前的 spec 审查。逐条对照 `tech-spec.md` 声称的能力与代码实际状态。
-> **基线**: 首次审查时 v0.6 · 275 passed;截至最后更新 v0.7-dev · 316 passed / 4 skipped · CI 双绿
-> **状态**: §1(spec 自身)与 §3(Defender Toolkit)已完成,其余待派
+> **基线**: 首次审查时 v0.6 · 275 passed;截至最后更新 v0.7-dev · 348 passed / 4 skipped · CI 双绿
+> **状态**: §1(spec 自身)、§3(Defender Toolkit)、§4(攻击面 8/8)已完成,`SCEN-E2E-001` 待人工决策,其余待派
 
 ---
 
@@ -14,7 +14,7 @@
 
 1. ~~**有五处过期/自相矛盾,会直接误导 Codex**~~ —— **已于 2026-07-26 直接修完**(§1)。
 2. ~~**Defender Toolkit 是关键路径**~~ —— **已于 2026-07-26 实现**(§3)。Defense Coverage 10/10,Task Utility 52/54。实现过程推翻了 §12 暗示的「工具名白名单即可」。
-3. **攻击面覆盖 5/8 大类**,缺的 3 类(Memory Poison / Plan Hijack / Model Theft & DoS)恰好是"Agent 特有"的那部分 —— 而这正是 §2 产品定位里写的差异化卖点(§4)。
+3. ~~**攻击面覆盖 5/8 大类**~~ —— **已于 2026-07-28 补齐**(§4)。缺的 3 类(Memory Poison / Plan Hijack / Model Theft & DoS)恰好是"Agent 特有"的那部分 —— 而这正是 §2 产品定位里写的差异化卖点,现已 8/8 全覆盖。
 
 ---
 
@@ -42,7 +42,7 @@
 |---|---|---|
 | 内置脆弱 Agent 集 | ✅ | 5 个 profile |
 | 工具集(文件/shell/HTTP/SQL/邮件) | ⚠️ | 工具**全是 mock 字符串**(`"[mock] shell not executed"`),没有真实执行。对靶场是合理取舍,但 spec 没说明 |
-| 攻击者工具包 | ⚠️ 5/8 | 见 §4 |
+| 攻击者工具包 | ✅ 8/8(`ATTACK-002` 2026-07-28 完成) | 见 §4 |
 | **防御者工具包** | ✅ 已交付 | `src/ai_agent_lab/defender/` + CLI `defend`,见 §3 |
 | 隔离沙箱(Docker + seccomp) | ⚠️ | 仅 Python 层 monkeypatch。声称范围内的逃逸口已补齐并有测试;子进程 / `ctypes` 原理上够不着,已用测试钉住 |
 | 评估引擎 | ✅ 6/6 已实现(`METRIC-002` 2026-07-27 完成) | 见 §3 表 |
@@ -93,30 +93,30 @@
 
 ---
 
-## 4. 攻击面:8 大类覆盖 5 类
+## 4. 攻击面:8 大类覆盖 8 类 ✅ 已于 2026-07-28 补齐(`ATTACK-002`)
 
 | §5.3 大类 | 状态 | 对应实现 |
 |---|---|---|
 | 1 Direct Prompt Injection | ✅ | `prompt_injection` + ATLAS AML.T0051 |
 | 2 Indirect Prompt Injection | ✅ | `indirect_prompt_injection` + AML.T0054 |
 | 3 Tool Escape | ✅ | `shell_escape` / `path_traversal` / `browser_ssrf` / `sql_injection` |
-| 4 **Memory Poison** | ❌ | 无。长会话 / 跨会话历史污染 |
-| 5 **Plan Hijack** | ❌ | 有 `multi_agent` 编排,但**没有针对它的攻击**。scratchpad 是天然的注入点 |
+| 4 **Memory Poison** | ✅ | `memory_poison`(`memory-poison-recall`,2026-07-28) |
+| 5 **Plan Hijack** | ✅ | `plan_hijack`(`plan-hijack-scratchpad`,2026-07-28)。scratchpad 是天然的注入点,payload 参照 `multi_agent.py` 的角色标签 |
 | 6 RAG Poison | ✅ | `rag_poisoning` |
 | 7 Supply Chain | ✅ | `scenarios/supply_chain.py` + `mcp.py` |
-| 8 **Model Theft / DoS** | ❌ | 无。超长上下文 / 资源耗尽 |
+| 8 **Model Theft / DoS** | ✅ | `model_dos`(`model-dos-unbounded-generation`,2026-07-28)。仅覆盖 DoS(资源耗尽)一侧,权重/行为窃取意义上的 Model Theft 仍未覆盖 |
 
-OWASP 标准剧本(§5.5)清单共 **10 条**(6 条 OWASP + 4 条 Agentic 扩展),实测:
+OWASP 标准剧本(§5.5)清单共 **10 条**(6 条 OWASP + 4 条 Agentic 扩展),实测(2026-07-28,`ATTACK-002` 后):
 
-- **完整覆盖 3 条**:LLM-01 Prompt Injection、LLM-08 Vector & Embedding、Agentic Tool Misuse
-- **部分覆盖 2 条**:LLM-02 Sensitive Disclosure(token_theft / email_exfiltration 沾边)、LLM-06 Excessive Agency(tool_misuse 沾边)
-- **未覆盖 5 条**:LLM-07 系统提示泄露、LLM-10 Model Theft、Agentic Plan Hijack、Agentic Memory Poison、Agentic Identity Spoofing
+- **完整覆盖 5 条**:LLM-01 Prompt Injection、LLM-08 Vector & Embedding、Agentic Tool Misuse、**Agentic Plan Hijack(新)**、**Agentic Memory Poison(新)**
+- **部分覆盖 3 条**:LLM-02 Sensitive Disclosure(token_theft / email_exfiltration 沾边)、LLM-06 Excessive Agency(tool_misuse 沾边)、**LLM-10 Model Theft(新,仅 DoS 一侧沾边,不含权重/行为窃取)**
+- **未覆盖 2 条**:LLM-07 系统提示泄露、Agentic Identity Spoofing
 
-→ **严格计 3/10 = 30%;计入部分覆盖 5/10 = 50%**。
+→ **严格计 5/10 = 50%;计入部分覆盖 8/10 = 80%**。
 
-§9 定的产品指标是「OWASP 覆盖 ≥ 90%」,当前 30%(严格)/ 50%(宽松)。**已在 spec §9 如实标注**,否则指标形同虚设。
+§9 定的产品指标是「OWASP 覆盖 ≥ 90%」,当前 50%(严格)/ 80%(宽松)。**已在 spec §9 如实标注**,否则指标形同虚设。剩余两条(LLM-07 系统提示泄露、Identity Spoofing)未在 `ATTACK-002` 范围内,需要新 issue。
 
-> 补充:全仓**没有任何 OWASP 编号到攻击类的映射**(已 grep 确认)。就算覆盖率上去了,也没法自动算出「覆盖了哪几条」。建议给 `Scenario` 加 `owasp_ids` 字段,让覆盖率变成可计算的数字而不是人工数。
+> 补充:全仓**没有任何 OWASP 编号到攻击类的映射**(已 grep 确认)。就算覆盖率上去了,也没法自动算出「覆盖了哪几条」。建议给 `Scenario` 加 `owasp_ids` 字段,让覆盖率变成可计算的数字而不是人工数 —— 见 `OWASP-001`,现在解锁了(`ATTACK-002` 已完成)。
 
 ---
 
@@ -131,8 +131,8 @@ SPEC-001  改 spec 自身的 5 处过期/矛盾      ✅ 已完成 2026-07-26
    │      └─ METRIC-002  Defense Coverage / Task Utility / 真 Detection Latency  ✅ 已完成 2026-07-27
    │             └─ SCEN-E2E-001  跑通 §12 旗舰剧本(端到端验收)
    │
-   ├─ ATTACK-002  Memory Poison + Plan Hijack + Model Theft/DoS
-   │      └─ OWASP-001  Scenario 加 owasp_ids,覆盖率变成可计算
+   ├─ ATTACK-002  Memory Poison + Plan Hijack + Model Theft/DoS  ✅ 已完成 2026-07-28
+   │      └─ OWASP-001  Scenario 加 owasp_ids,覆盖率变成可计算(现在解锁了)
    │
    └─ REMEDIATION-001  Scenario 加 remediation,报告输出修复建议
 ```

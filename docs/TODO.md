@@ -1,6 +1,6 @@
 # 003 AI-Agent-Security-Lab · TODO
 
-> **项目状态**: v0.7-dev · 335 passed / 4 skipped · ruff 全绿 · CI 已接入
+> **项目状态**: v0.7-dev · 348 passed / 4 skipped · ruff 全绿 · CI 已接入
 > **共享接口**: [v0.1-contract.md](../../000shared-llm-core/docs/v0.1-contract.md) + [v0.5-contract.md](../../000shared-llm-core/docs/v0.5-contract.md) (均已冻结)
 > ⚠️ 共享内核实际版本是 **0.5.0**。`Finding` / `FindingSeverity` / `MultiAgentOrchestrator` /
 > `RuleEngine` / `FindingRegistry` 定义在 **v0.5** 契约,v0.1 契约里没有 —— 只读 v0.1 会
@@ -45,11 +45,11 @@
 |----|------|--------|------|
 | ~~SPEC-001~~ | 修正 tech-spec 过期/矛盾 | ✅ done 2026-07-26 | 已直接执行,不必派 Codex |
 | ~~DEF-001~~ | Defender Toolkit 四件套 | ✅ done 2026-07-26 | Coverage 10/10 · Task Utility 52/54 · CLI `defend` · 40 测试。**推翻了「工具名白名单即可」的假设**,详见 tech-spec §5.4 |
-| ATTACK-002 | 补 Memory Poison / Plan Hijack / Model DoS 三大攻击类 | P1 | **无阻塞,可立即派** |
+| ~~ATTACK-002~~ | 补 Memory Poison / Plan Hijack / Model DoS 三大攻击类 | ✅ done 2026-07-28 | 攻击面 5/8 → 8/8。13 个新测试。**顺带发现并修复一个真实的 Defense Coverage 回归**:`model_dos` 请求常常不产生工具调用,`ToolGuard`/`PlanValidator` 无从检查,已扩展 `InputFilter` 直接在 `user_input` 上判定无界生成,详见 tech-spec §5.4 |
 | ~~METRIC-002~~ | Defense Coverage / Task Utility / 真 Detection Latency / Cost | ✅ done 2026-07-27 | 六维度全接入 `ASRReport`;顺带发现 §12 剧本第 4-5 步叙事与单步路由器实现不符,已登记给 `SCEN-E2E-001` |
 | SCEN-E2E-001 | 让 §12 旗舰剧本描述与实现对齐(改路由支持两步,或改文档如实描述单步) | P1 | **无阻塞,可立即派**(需人类先选方案 A/B,见派活单) |
 | REMEDIATION-001 | Scenario 加 remediation,报告输出修复建议 | P2 | 无 |
-| OWASP-001 | Scenario 加 owasp_ids,让覆盖率可计算 | P2 | 无 |
+| OWASP-001 | Scenario 加 owasp_ids,让覆盖率可计算 | P2 | 现在解锁了(`ATTACK-002` 已完成) |
 | REPRO-001 | CI 加「同 seed 跑两次 diff 为空」 | P2 | 无 |
 | CI-002 | CI 加 checkout 000shared-integration,4 个 skip 用例真跑起来 | P2 | 无 |
 

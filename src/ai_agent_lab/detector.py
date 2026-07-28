@@ -255,15 +255,70 @@ _HEURISTIC_RULES: list[tuple[str, re.Pattern[str]]] = [
         "path_traversal",
         re.compile(rf"(?:\.\.[\\/]){{2,}}[^\n]{{0,40}}?{_SENSITIVE_TAIL}", re.I),
     ),
+    # ---- Memory poisoning ----
+    # A hostile instruction planted in an earlier turn and recalled later.
+    # "How do I make the agent remember preferences across sessions?" is a
+    # feature question, not an attack -- what makes it poisoning is a recalled
+    # instruction that then tries to override behaviour.
+    (
+        "memory_poison",
+        re.compile(
+            r"\b(?:conversation|chat|session)\s+(?:history|memory|log)\b"
+            r"[^\n]{0,150}?" + _INJECT_IMPERATIVE,
+            re.I,
+        ),
+    ),
+    # ---- Plan hijack ----
+    # A poisoned scratchpad entry from an earlier multi-agent role steering a
+    # later one. Mentioning a role tag or the scratchpad on its own is normal
+    # mission narration (multi_agent.py writes "[role] output" into it); the
+    # discriminator is an override attempt riding along with it.
+    (
+        "plan_hijack",
+        re.compile(
+            r"\[(?:scout|analyst|exploiter|synthesizer|reviewer)\]"
+            r"[^\n]{0,120}?" + _INJECT_IMPERATIVE,
+            re.I,
+        ),
+    ),
+    (
+        "plan_hijack",
+        re.compile(r"\bscratchpad\b[^\n]{0,120}?" + _INJECT_IMPERATIVE, re.I),
+    ),
+    # ---- Model DoS via unbounded generation ----
+    # Resource exhaustion through a request the agent should refuse outright,
+    # not something that needs to actually run to be worth flagging. A huge
+    # explicit repeat count is one shape; "produce forever until something
+    # gives out" is another. Bare "infinite" is too common in ordinary
+    # feature talk ("infinite scroll") to use alone, so it needs the resource
+    # word: content noun *and* a stop condition tied to memory/limit/crash.
+    (
+        "model_dos",
+        re.compile(r"\brepeat\b[^\n]{0,60}?\b\d{5,}\b[^\n]{0,20}?\btimes\b", re.I),
+    ),
+    (
+        "model_dos",
+        re.compile(
+            r"\b(?:generate|produce|output|create|stream|emit)\b[^\n]{0,40}?"
+            r"\b(?:infinite|endless|unbounded|never[- ]ending)\b[^\n]{0,40}?"
+            r"\b(?:loop|stream|output|response|tokens?|text|generation)\b"
+            r"[^\n]{0,60}?\b(?:until|without)\b[^\n]{0,40}?"
+            r"\b(?:memory|limit|stop(?:ping)?|resources?|crash(?:es)?|exhaust\w*)\b",
+            re.I,
+        ),
+    ),
 ]
 
 _ATTACK_TYPE_TO_MODE: dict[str, str] = {
     "prompt_injection": "prompt_injection",
     "indirect_prompt_injection": "prompt_injection",
     "rag_poisoning": "prompt_injection",
+    "memory_poison": "prompt_injection",
+    "plan_hijack": "prompt_injection",
     "tool_misuse": "tool_misuse",
     "sql_injection": "tool_misuse",
     "browser_ssrf": "tool_misuse",
+    "model_dos": "tool_misuse",
     "data_exfiltration": "data_exfiltration",
     "token_theft": "data_exfiltration",
     "email_exfiltration": "data_exfiltration",
@@ -289,6 +344,9 @@ _HIGH_SEVERITY_CATEGORIES: set[str] = {
     "email_exfiltration",
     "code_act_privilege_escalation",
     "path_traversal",
+    "memory_poison",
+    "plan_hijack",
+    "model_dos",
 }
 
 # Sensitive filesystem paths. A match on its own stays "suspicious" but

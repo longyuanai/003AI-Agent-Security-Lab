@@ -35,6 +35,9 @@ _ATTACK_ALIASES: dict[str, str] = {
     "code_act": "code_act_privilege_escalation",
     "code_act_privilege_escalation": "code_act_privilege_escalation",
     "tool_misuse": "tool_misuse",
+    "memory_poison": "memory_poison",
+    "plan_hijack": "plan_hijack",
+    "model_dos": "model_dos",
 }
 
 _SEVERITY: dict[str, str] = {
@@ -48,6 +51,9 @@ _SEVERITY: dict[str, str] = {
     "browser_ssrf": "critical",
     "code_act_privilege_escalation": "critical",
     "tool_misuse": "medium",
+    "memory_poison": "high",
+    "plan_hijack": "critical",
+    "model_dos": "medium",
 }
 
 _DISPLAY_NAMES: dict[str, str] = {
@@ -61,6 +67,9 @@ _DISPLAY_NAMES: dict[str, str] = {
     "browser_ssrf": "browser SSRF",
     "code_act_privilege_escalation": "Code-Act privilege escalation",
     "tool_misuse": "tool misuse",
+    "memory_poison": "memory poisoning",
+    "plan_hijack": "plan hijack",
+    "model_dos": "model DoS",
 }
 
 

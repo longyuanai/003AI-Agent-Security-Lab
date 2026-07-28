@@ -60,6 +60,24 @@ CONFIRMATION_WAIVED = re.compile(
     re.IGNORECASE,
 )
 
+# Requests for unbounded generation -- a resource-exhaustion attempt that
+# never touches a tool, so nothing downstream of the input layer would ever
+# see it. Deliberately narrow: bare "infinite" is too common in ordinary
+# feature talk ("infinite scroll") to use alone, so this needs a huge
+# explicit repeat count, or a verb + infinite/endless/unbounded + content
+# noun + an explicit resource-exhaustion stop condition. Kept textually
+# identical to detector.py's `model_dos` rule on purpose -- same signal,
+# different layer (classification vs. policy), see module docstring.
+UNBOUNDED_GENERATION = re.compile(
+    r"\brepeat\b[^\n]{0,60}?\b\d{5,}\b[^\n]{0,20}?\btimes\b|"
+    r"\b(?:generate|produce|output|create|stream|emit)\b[^\n]{0,40}?"
+    r"\b(?:infinite|endless|unbounded|never[- ]ending)\b[^\n]{0,40}?"
+    r"\b(?:loop|stream|output|response|tokens?|text|generation)\b"
+    r"[^\n]{0,60}?\b(?:until|without)\b[^\n]{0,40}?"
+    r"\b(?:memory|limit|stop(?:ping)?|resources?|crash(?:es)?|exhaust\w*)\b",
+    re.IGNORECASE,
+)
+
 
 def escapes_workspace(path: str) -> bool:
     """True when `path` leaves the agent's working directory.
