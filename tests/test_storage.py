@@ -195,7 +195,12 @@ def test_metadata_contains_only_expected_privacy_safe_columns() -> None:
         for table in Base.metadata.sorted_tables
     }
     serialized = str(columns).lower()
-    assert set(columns) == {"tenants", "projects", "evaluation_runs"}
+    assert set(columns) == {
+        "tenants",
+        "projects",
+        "evaluation_runs",
+        "report_artifacts",
+    }
     assert "prompt" not in serialized
     assert "message" not in serialized
     assert "conversation" not in serialized

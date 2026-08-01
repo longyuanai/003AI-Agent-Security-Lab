@@ -104,4 +104,36 @@ class EvaluationRunRow(Base):
     version: Mapped[int] = mapped_column(Integer, nullable=False)
 
 
-__all__ = ["Base", "EvaluationRunRow", "ProjectRow", "TenantRow"]
+class ReportArtifactRow(Base):
+    __tablename__ = "report_artifacts"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "object_key", name="uq_artifacts_tenant_key"),
+        CheckConstraint("size_bytes >= 0", name="size_non_negative"),
+        Index("ix_artifacts_tenant_run", "tenant_id", "run_id"),
+        Index("ix_artifacts_expiry", "expires_at", "deleted_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(
+        String(128), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
+    )
+    run_id: Mapped[str] = mapped_column(
+        String(128), ForeignKey("evaluation_runs.id", ondelete="CASCADE"), nullable=False
+    )
+    format: Mapped[str] = mapped_column(String(32), nullable=False)
+    object_key: Mapped[str] = mapped_column(String(512), nullable=False)
+    sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
+    content_type: Mapped[str] = mapped_column(String(128), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+__all__ = [
+    "Base",
+    "EvaluationRunRow",
+    "ProjectRow",
+    "ReportArtifactRow",
+    "TenantRow",
+]
