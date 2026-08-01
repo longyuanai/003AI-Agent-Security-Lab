@@ -10,14 +10,16 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import click
 from rich.console import Console
 
 from ai_agent_lab import __version__
+from ai_agent_lab.auth import APIKeyManager, Role
 from ai_agent_lab.attacks import built_in_scenarios, get_scenario
 from ai_agent_lab.benchmark_metrics import evaluate_task_benchmark
 from ai_agent_lab.judge import StubLabJudge, build_lab_judge
@@ -47,6 +49,8 @@ from ai_agent_lab.scan import scan_payload
 from ai_agent_lab.scenarios import evaluate_demo_scenarios
 from ai_agent_lab.target import built_in_targets
 from ai_agent_lab.task_suites import built_in_task_suites
+from ai_agent_lab.storage import make_engine, session_factory
+from ai_agent_lab.storage.repositories import TenantRepository
 
 console = Console()
 
@@ -213,6 +217,80 @@ def _is_indirect_mission_payload(payload: dict[str, object]) -> bool:
         }
         and 1 <= iterations <= 100
     )
+
+
+def _credential_manager() -> tuple[object, APIKeyManager]:
+    database_url = os.environ.get("LAB_DATABASE_URL", "").strip()
+    pepper = os.environ.get("LAB_API_KEY_PEPPER", "")
+    if not database_url:
+        raise click.ClickException("LAB_DATABASE_URL is required")
+    try:
+        engine = make_engine(database_url)
+        return engine, APIKeyManager(session_factory(engine), pepper)
+    except ValueError as exc:
+        raise click.ClickException(str(exc)) from exc
+
+
+@cli.command("issue-api-key")
+@click.option("--tenant", "tenant_id", required=True, help="Existing tenant ID.")
+@click.option(
+    "--role",
+    "role_values",
+    multiple=True,
+    required=True,
+    type=click.Choice([role.value for role in Role], case_sensitive=False),
+    help="Role to grant; repeat for multiple roles.",
+)
+@click.option("--created-by", required=True, help="Auditable operator identifier.")
+@click.option(
+    "--ttl-days", type=click.IntRange(min=1, max=365), default=90, show_default=True
+)
+def issue_api_key_cmd(
+    tenant_id: str, role_values: tuple[str, ...], created_by: str, ttl_days: int
+) -> None:
+    """Issue a machine credential and print its plaintext exactly once."""
+
+    engine, manager = _credential_manager()
+    try:
+        sessions = session_factory(engine)
+        with sessions() as session:
+            if TenantRepository(session).get(tenant_id) is None:
+                raise click.ClickException("tenant does not exist")
+        issued = manager.issue(
+            tenant_id=tenant_id,
+            roles=[Role(value.lower()) for value in role_values],
+            created_by=created_by,
+            ttl=timedelta(days=ttl_days),
+        )
+        click.echo(
+            json.dumps(
+                {
+                    "key_id": issued.key_id,
+                    "token": issued.token,
+                    "tenant_id": issued.tenant_id,
+                    "roles": sorted(role.value for role in issued.roles),
+                    "expires_at": issued.expires_at.isoformat(),
+                    "warning": "Store this token now; it cannot be recovered.",
+                },
+                sort_keys=True,
+            )
+        )
+    finally:
+        engine.dispose()
+
+
+@cli.command("revoke-api-key")
+@click.option("--key-id", required=True, help="Public API key identifier.")
+def revoke_api_key_cmd(key_id: str) -> None:
+    """Immediately revoke an API key without accepting its plaintext token."""
+
+    engine, manager = _credential_manager()
+    try:
+        if not manager.revoke(key_id):
+            raise click.ClickException("API key was not found or already revoked")
+        click.echo(json.dumps({"key_id": key_id, "revoked": True}, sort_keys=True))
+    finally:
+        engine.dispose()
 
 
 def _build_router_or_none(provider: str) -> object | None:

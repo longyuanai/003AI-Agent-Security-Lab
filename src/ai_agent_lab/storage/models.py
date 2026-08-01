@@ -68,6 +68,26 @@ class ProjectRow(Base):
     version: Mapped[int] = mapped_column(Integer, nullable=False)
 
 
+class APIKeyRow(Base):
+    __tablename__ = "api_keys"
+    __table_args__ = (
+        Index("ix_api_keys_tenant_expiry", "tenant_id", "expires_at"),
+        Index("ix_api_keys_expiry_revoked", "expires_at", "revoked_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(
+        String(128), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
+    )
+    digest: Mapped[str] = mapped_column(String(64), nullable=False)
+    salt: Mapped[str] = mapped_column(String(64), nullable=False)
+    scopes: Mapped[list[str]] = mapped_column(JSON, nullable=False)
+    created_by: Mapped[str] = mapped_column(String(128), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
 class EvaluationRunRow(Base):
     __tablename__ = "evaluation_runs"
     __table_args__ = (
@@ -131,6 +151,7 @@ class ReportArtifactRow(Base):
 
 
 __all__ = [
+    "APIKeyRow",
     "Base",
     "EvaluationRunRow",
     "ProjectRow",

@@ -16,6 +16,7 @@ import uvicorn
 from ai_agent_lab.api import create_app
 from ai_agent_lab.api.server import create_server_app
 from ai_agent_lab.application import LabApplicationService
+from ai_agent_lab.auth import Principal, Role, StaticAuthenticator
 from ai_agent_lab.domain import Tenant, TenantContext
 from ai_agent_lab.storage import FileArtifactStore, create_schema, make_engine, session_factory
 from ai_agent_lab.storage.repositories import TenantRepository
@@ -56,7 +57,12 @@ def _stack(tmp_path: Path):
     artifacts = FileArtifactStore(tmp_path / "artifacts")
     service = LabApplicationService(sessions, artifacts)
     context = TenantContext("tenant_a")
-    app = create_app(service=service, tenant_context=context)
+    app = create_app(
+        service=service,
+        authenticator=StaticAuthenticator(
+            Principal("local_operator", "tenant_a", frozenset({Role.ADMIN}), "local")
+        ),
+    )
     return engine, sessions, artifacts, service, context, ASGIClient(app)
 
 
@@ -177,7 +183,12 @@ def test_service_restart_reads_persisted_run_and_artifacts(tmp_path: Path) -> No
     service.process_next(context, owner="worker")
     restarted = LabApplicationService(sessions, artifacts)
     restarted_client = ASGIClient(
-        create_app(service=restarted, tenant_context=context)
+        create_app(
+            service=restarted,
+            authenticator=StaticAuthenticator(
+                Principal("local_operator", "tenant_a", frozenset({Role.ADMIN}), "local")
+            ),
+        )
     )
     assert restarted_client.get(f"/v1/runs/{run['id']}").json()["status"] == (
         "completed"
@@ -193,7 +204,12 @@ def test_other_tenant_app_cannot_read_run_or_reports(tmp_path: Path) -> None:
     _, run = _create_project_and_run(client)
     service.process_next(context, owner="worker")
     tenant_b = ASGIClient(
-        create_app(service=service, tenant_context=TenantContext("tenant_b"))
+        create_app(
+            service=service,
+            authenticator=StaticAuthenticator(
+                Principal("local_operator", "tenant_b", frozenset({Role.ADMIN}), "local")
+            ),
+        )
     )
     assert tenant_b.get(f"/v1/runs/{run['id']}").status_code == 404
     assert tenant_b.get(f"/v1/runs/{run['id']}/reports/json").status_code == 404
@@ -216,6 +232,8 @@ def test_environment_server_factory_bootstraps_local_single_tenant(
             "LAB_TENANT_ID": "configured_tenant",
             "LAB_TENANT_NAME": "Configured Tenant",
             "LAB_EXPOSE_DOCS": "0",
+            "LAB_AUTH_MODE": "local",
+            "LAB_ALLOW_INSECURE_LOCAL_AUTH": "1",
         }
     )
     client = ASGIClient(app)
@@ -231,6 +249,8 @@ def test_environment_server_factory_can_explicitly_expose_docs(tmp_path: Path) -
             "LAB_DATABASE_URL": f"sqlite:///{(tmp_path / 'docs.db').as_posix()}",
             "LAB_ARTIFACT_ROOT": str(tmp_path / "docs-artifacts"),
             "LAB_EXPOSE_DOCS": "1",
+            "LAB_AUTH_MODE": "local",
+            "LAB_ALLOW_INSECURE_LOCAL_AUTH": "1",
         }
     )
     assert ASGIClient(app).get("/docs").status_code == 200
@@ -242,6 +262,8 @@ def test_uvicorn_serves_real_local_health_request(tmp_path: Path) -> None:
         {
             "LAB_DATABASE_URL": f"sqlite:///{(tmp_path / 'socket.db').as_posix()}",
             "LAB_ARTIFACT_ROOT": str(tmp_path / "socket-artifacts"),
+            "LAB_AUTH_MODE": "local",
+            "LAB_ALLOW_INSECURE_LOCAL_AUTH": "1",
         }
     )
     with socket.socket() as reservation:

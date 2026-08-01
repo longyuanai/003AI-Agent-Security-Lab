@@ -198,11 +198,13 @@ Judge safely falls back to the offline stub and reports `judge_mode: stub`.
   -q --tb=short
 ```
 
-## Commercial single-host service (M2)
+## Commercial single-host service (M2/M3)
 
-The M2 service is an explicit single-tenant deployment. It does not accept a
-client-supplied tenant ID. Authentication/RBAC and a strong container Runner
-are M3 requirements; do not expose M2 directly to the public Internet.
+The service never accepts a client-supplied tenant ID. Commercial routes derive
+the tenant from an authenticated Principal and enforce viewer/operator/admin/
+auditor permissions at both the HTTP and application-service boundaries. A
+strong container Runner remains an M3 requirement; do not expose execution of
+untrusted code until that boundary is complete.
 
 Local SQLite startup:
 
@@ -211,10 +213,48 @@ $env:LAB_DATABASE_URL = "sqlite:///./data/lab.db"
 $env:LAB_ARTIFACT_ROOT = "./data/artifacts"
 $env:LAB_TENANT_ID = "local"
 $env:LAB_TENANT_NAME = "Local Tenant"
+$env:LAB_AUTH_MODE = "local"
+$env:LAB_ALLOW_INSECURE_LOCAL_AUTH = "1"
 
 python -m uvicorn ai_agent_lab.api.server:create_server_app `
   --factory --host 127.0.0.1 --port 18081
 ```
+
+`local` authentication is deliberately double opt-in and is only for loopback
+development. The default `LAB_AUTH_MODE=disabled` exposes health endpoints but
+does not register commercial resource routes.
+
+For machine authentication, migrate the database, provide a secret-manager
+pepper of at least 32 bytes, and issue a key. The plaintext token is printed
+once; only a per-key salt and HMAC-SHA-256 digest are stored:
+
+```powershell
+$env:LAB_AUTH_MODE = "api_key"
+$env:LAB_API_KEY_PEPPER = "<secret-manager-reference-value>"
+python -m ai_agent_lab.cli issue-api-key `
+  --tenant local --role admin --created-by bootstrap_operator
+
+# Rotate by issuing the replacement first, then revoke the old public key ID.
+python -m ai_agent_lab.cli revoke-api-key --key-id <key-id>
+```
+
+Enterprise OIDC verifies signed bearer tokens with an approved asymmetric
+algorithm and requires issuer, audience, subject, issued-at, expiry, tenant, and
+roles claims. The first release loads a controlled public-key file; it never
+auto-fetches an attacker-selected JWKS URL:
+
+```powershell
+$env:LAB_AUTH_MODE = "oidc" # or api_key+oidc
+$env:LAB_OIDC_ISSUER = "https://idp.example.com/"
+$env:LAB_OIDC_AUDIENCE = "ai-agent-security-lab"
+$env:LAB_OIDC_PUBLIC_KEY_FILE = "C:\run\secrets\idp-public.pem"
+$env:LAB_OIDC_ALGORITHMS = "RS256"
+```
+
+Roles are least privilege: `viewer` reads projects/runs/reports; `operator`
+also creates and cancels runs; `admin` manages all current resources and
+credentials; `auditor` is reserved for the append-only audit API and cannot
+read customer reports by default.
 
 PostgreSQL production deployments must run Alembic before starting the API;
 the service never auto-creates a PostgreSQL schema:

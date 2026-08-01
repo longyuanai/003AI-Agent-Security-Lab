@@ -27,7 +27,7 @@
 | BENCH-003 | 五 Agent 合法/攻击任务套件 | done | `6004978` |
 | BENCH-004 | ASR/Utility/Detector/Judge 指标 | done | `12ae9dd` |
 
-最近完整回归基线：246 tests passed。每个后续里程碑必须重新执行完整回归，不能沿用该数字声称通过。
+最近完整回归基线：373 tests passed（AUTH-001）。每个后续里程碑必须重新执行完整回归，不能沿用该数字声称通过。
 
 ## 2. M0 · 商用技术基线
 
@@ -66,7 +66,7 @@ M2 状态：**done（2026-08-01）**。服务可单机部署；任务不因进�
 
 | ID | 任务 | 状态 | 验收 |
 |----|------|------|------|
-| AUTH-001 | API key hash、OIDC principal、RBAC | planned | 权限矩阵和拒绝路径测试 |
+| AUTH-001 | API key hash、OIDC principal、RBAC | done | HMAC+salt、RS256 claims、双层 RBAC、密钥 CLI；25 tests；373 passed |
 | TENANT-001 | tenant context 与 repository 强制隔离 | planned | 跨租户/IDOR 测试为发布阻断项 |
 | QUOTA-001 | tenant/project 并发、速率和成本配额 | planned | 超额明确拒绝且可审计 |
 | EXEC-001 | 容器 Sandbox Broker/Runner | planned | non-root、read-only、cap-drop、资源限制 |
@@ -135,7 +135,7 @@ GA 禁止条件：跨租户问题、secret 泄漏、执行器默认可联网、�
 1. M0 商用文档：done。
 2. M1 Benchmark 产品内核：done。
 3. M2 可部署服务：done。
-4. 下一任务 `AUTH-001`：API key/OIDC principal 与 RBAC。
-5. 随后执行 `TENANT-001`、`QUOTA-001`、`EXEC-001`、`NET-001`、`SECRET-001`。
+4. AUTH-001 企业身份与 RBAC：done。
+5. 下一任务 `TENANT-001`，随后执行 `QUOTA-001`、`EXEC-001`、`NET-001`、`SECRET-001`。
 
 不得为了追求“商用”一次性引入 Kubernetes、Redis、消息队列和多个微服务。只有测得模块化单体无法满足容量或隔离目标时，才通过 ADR 拆分。

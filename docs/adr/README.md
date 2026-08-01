@@ -19,6 +19,7 @@ ADR 用来记录影响多个模块、生产依赖、数据兼容或安全边界�
 | [0004](0004-database-leased-jobs.md) | PostgreSQL lease 任务队列优先 | accepted |
 | [0005](0005-identity-and-tenant-context.md) | API key/OIDC 身份与强制租户上下文 | accepted |
 | [0006](0006-isolated-container-runner.md) | 独立 Linux 容器 Runner | accepted |
+| [0007](0007-pyjwt-oidc-verification.md) | PyJWT 验证 OIDC 签名令牌 | accepted |
 
 ## 新 ADR 流程
 
@@ -26,4 +27,3 @@ ADR 用来记录影响多个模块、生产依赖、数据兼容或安全边界�
 2. 描述上下文、决策驱动因素、候选方案、安全影响、迁移和回滚。
 3. 新生产依赖、服务拆分、存储变化、认证变化和信任边界变化必须先有 accepted ADR。
 4. ADR 不原地改写历史结论；重大变化新增 ADR 并标记 superseded。
-

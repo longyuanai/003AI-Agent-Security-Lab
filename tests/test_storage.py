@@ -196,6 +196,7 @@ def test_metadata_contains_only_expected_privacy_safe_columns() -> None:
     }
     serialized = str(columns).lower()
     assert set(columns) == {
+        "api_keys",
         "tenants",
         "projects",
         "evaluation_runs",
@@ -204,7 +205,19 @@ def test_metadata_contains_only_expected_privacy_safe_columns() -> None:
     assert "prompt" not in serialized
     assert "message" not in serialized
     assert "conversation" not in serialized
-    assert "api_key" not in serialized
+    assert columns["api_keys"] == {
+        "id",
+        "tenant_id",
+        "digest",
+        "salt",
+        "scopes",
+        "created_by",
+        "created_at",
+        "expires_at",
+        "revoked_at",
+    }
+    assert "token" not in str(columns["api_keys"]).lower()
+    assert "secret" not in serialized
 
 
 def test_alembic_upgrade_creates_expected_schema(tmp_path: Path) -> None:

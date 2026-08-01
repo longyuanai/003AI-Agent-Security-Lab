@@ -24,6 +24,7 @@ uvicorn = ">=0.51,<1.0"
 sqlalchemy = ">=2.0.51,<3.0"
 alembic = ">=1.18.5,<2.0"
 psycopg = { version = ">=3.3.4,<4.0", extras = ["binary"] }
+pyjwt = { version = ">=2.13,<3.0", extras = ["crypto"] }
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.2.0"

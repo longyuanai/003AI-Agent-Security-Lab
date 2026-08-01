@@ -10,7 +10,7 @@ import uuid
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-from fastapi import FastAPI, Request, Response, status
+from fastapi import Depends, FastAPI, Request, Response, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -25,8 +25,19 @@ from ai_agent_lab.api.schemas import (
     RunCreate,
     RunResponse,
 )
-from ai_agent_lab.application import LabApplicationService
-from ai_agent_lab.domain import EvaluationRun, Project, TenantContext
+from ai_agent_lab.application import (
+    AuthorizedLabApplicationService,
+    LabApplicationService,
+)
+from ai_agent_lab.auth import (
+    AuthenticationError,
+    Authenticator,
+    AuthorizationError,
+    Permission,
+    Principal,
+    require_permission,
+)
+from ai_agent_lab.domain import EvaluationRun, Project
 from ai_agent_lab.observability import MetricsRegistry
 
 
@@ -43,13 +54,14 @@ def create_app(
     metrics: MetricsRegistry | None = None,
     logger: logging.Logger | None = None,
     service: LabApplicationService | None = None,
-    tenant_context: TenantContext | None = None,
-    principal_id: str = "local_operator",
+    authenticator: Authenticator | None = None,
 ) -> FastAPI:
     """Create an API app; no benchmark or target execution occurs here."""
 
     if max_request_bytes < 1:
         raise ValueError("max_request_bytes must be positive")
+    if (service is None) != (authenticator is None):
+        raise ValueError("commercial routes require both service and authenticator")
     check = readiness_check or (lambda: True)
     active_metrics = metrics or MetricsRegistry()
     active_logger = logger or logging.getLogger("ai_agent_lab.api")
@@ -182,7 +194,30 @@ def create_app(
             )
         return HealthResponse(status="ready", version=__version__)
 
-    if service is not None and tenant_context is not None:
+    if service is not None and authenticator is not None:
+        authorized_service = AuthorizedLabApplicationService(service)
+
+        def authenticated_principal(request: Request) -> Principal:
+            try:
+                return authenticator.authenticate(request.headers.get("authorization"))
+            except AuthenticationError as exc:
+                raise APIError(
+                    401, "authentication_required", "Valid credentials are required"
+                ) from exc
+
+        def authorized(permission: Permission):
+            def dependency(
+                principal: Principal = Depends(authenticated_principal),
+            ) -> Principal:
+                try:
+                    require_permission(principal, permission)
+                except AuthorizationError as exc:
+                    raise APIError(
+                        403, "permission_denied", "Permission is required"
+                    ) from exc
+                return principal
+
+            return dependency
 
         @app.post(
             "/v1/projects",
@@ -190,12 +225,14 @@ def create_app(
             status_code=status.HTTP_201_CREATED,
             tags=["projects"],
         )
-        def create_project(payload: ProjectCreate) -> ProjectResponse:
+        def create_project(
+            payload: ProjectCreate,
+            principal: Principal = Depends(authorized(Permission.PROJECT_CREATE)),
+        ) -> ProjectResponse:
             try:
-                project = service.create_project(
-                    tenant_context,
+                project = authorized_service.create_project(
+                    principal,
                     name=payload.name,
-                    created_by=principal_id,
                     target_policy=payload.target_policy,
                 )
             except ValueError as exc:
@@ -207,10 +244,12 @@ def create_app(
             response_model=list[ProjectResponse],
             tags=["projects"],
         )
-        def list_projects() -> list[ProjectResponse]:
+        def list_projects(
+            principal: Principal = Depends(authorized(Permission.PROJECT_READ)),
+        ) -> list[ProjectResponse]:
             return [
                 _project_response(project)
-                for project in service.list_projects(tenant_context)
+                for project in authorized_service.list_projects(principal)
             ]
 
         @app.post(
@@ -219,10 +258,13 @@ def create_app(
             status_code=status.HTTP_202_ACCEPTED,
             tags=["runs"],
         )
-        def create_run(payload: RunCreate) -> RunResponse:
+        def create_run(
+            payload: RunCreate,
+            principal: Principal = Depends(authorized(Permission.RUN_CREATE)),
+        ) -> RunResponse:
             try:
-                run, _created = service.create_run(
-                    tenant_context,
+                run, _created = authorized_service.create_run(
+                    principal,
                     project_id=payload.project_id,
                     suite_version=payload.suite_version,
                     seed=payload.seed,
@@ -235,8 +277,11 @@ def create_app(
         @app.get(
             "/v1/runs/{run_id}", response_model=RunResponse, tags=["runs"]
         )
-        def get_run(run_id: str) -> RunResponse:
-            run = service.get_run(tenant_context, run_id)
+        def get_run(
+            run_id: str,
+            principal: Principal = Depends(authorized(Permission.RUN_READ)),
+        ) -> RunResponse:
+            run = authorized_service.get_run(principal, run_id)
             if run is None:
                 raise APIError(404, "run_not_found", "Evaluation run was not found")
             return _run_response(run)
@@ -246,18 +291,25 @@ def create_app(
             response_model=RunResponse,
             tags=["runs"],
         )
-        def cancel_run(run_id: str) -> RunResponse:
-            if not service.cancel_run(tenant_context, run_id):
+        def cancel_run(
+            run_id: str,
+            principal: Principal = Depends(authorized(Permission.RUN_CANCEL)),
+        ) -> RunResponse:
+            if not authorized_service.cancel_run(principal, run_id):
                 raise APIError(409, "run_not_cancellable", "Run cannot be cancelled")
-            run = service.get_run(tenant_context, run_id)
+            run = authorized_service.get_run(principal, run_id)
             assert run is not None
             return _run_response(run)
 
         @app.get("/v1/runs/{run_id}/reports/{format_name}", tags=["reports"])
-        def download_report(run_id: str, format_name: str) -> Response:
+        def download_report(
+            run_id: str,
+            format_name: str,
+            principal: Principal = Depends(authorized(Permission.REPORT_READ)),
+        ) -> Response:
             if format_name not in {"json", "markdown"}:
                 raise APIError(404, "report_not_found", "Report was not found")
-            result = service.read_report(tenant_context, run_id, format_name)
+            result = authorized_service.read_report(principal, run_id, format_name)
             if result is None:
                 raise APIError(404, "report_not_found", "Report was not found")
             body, content_type = result
@@ -300,6 +352,8 @@ def _secure_response(response, request_id: str):
     response.headers["X-Request-Id"] = request_id
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["Cache-Control"] = "no-store"
+    if response.status_code == 401:
+        response.headers["WWW-Authenticate"] = "Bearer"
     return response
 
 

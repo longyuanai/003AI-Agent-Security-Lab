@@ -38,9 +38,9 @@ AI-Agent-Security-Lab 是面向 AI Agent 的安全评测与回归平台。平台
 | 内置 Agent / Attack | 5 Agent、10 Attack | 保持兼容并版本化 | 插件兼容策略和弃用周期 |
 | Benchmark | M1 已完成：任务套件、Oracle、指标、evidence、CLI | 已达到 | 基准版本锁定与回归比较 |
 | 报告 | 隐私安全 Markdown/JSON 已完成 | 已达到 | 签名、保留策略、导出审计 |
-| API | M2 已完成：CLI/IntegrationGateway + `/v1` 单租户 API | 已达到 | 认证、向后兼容和限流 |
+| API | M2 已完成；M3 已接入认证 `/v1` API | 已达到 | 向后兼容、限流和审计 |
 | 持久化 | M2 已完成：SQLite/PostgreSQL、Alembic、lease、artifact | 已达到 | PostgreSQL 恢复演练与归档 |
-| 身份权限 | 无 | API key + 项目级 RBAC | OIDC/SSO、细粒度审计 |
+| 身份权限 | API key + OIDC Principal + RBAC | 已达到 | 动态 JWKS 轮换、细粒度审计 |
 | 隔离 | subprocess PoC | 容器执行器、默认断网 | 多租户强隔离与逃逸测试 |
 | 可观测性 | 测试与 CLI 日志 | 结构化日志、metrics、健康检查 | SLO、告警、追踪、运行手册 |
 | 供应链 | Python 包 | 锁定依赖、SBOM、扫描 | 签名发布、漏洞响应 SLA |
