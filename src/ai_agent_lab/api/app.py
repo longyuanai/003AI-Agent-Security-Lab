@@ -10,14 +10,23 @@ import uuid
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Response, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from ai_agent_lab import __version__
 from ai_agent_lab.api.errors import APIError, error_envelope
-from ai_agent_lab.api.schemas import ErrorEnvelope, HealthResponse
+from ai_agent_lab.api.schemas import (
+    ErrorEnvelope,
+    HealthResponse,
+    ProjectCreate,
+    ProjectResponse,
+    RunCreate,
+    RunResponse,
+)
+from ai_agent_lab.application import LabApplicationService
+from ai_agent_lab.domain import EvaluationRun, Project, TenantContext
 from ai_agent_lab.observability import MetricsRegistry
 
 
@@ -33,6 +42,9 @@ def create_app(
     max_request_bytes: int = DEFAULT_MAX_REQUEST_BYTES,
     metrics: MetricsRegistry | None = None,
     logger: logging.Logger | None = None,
+    service: LabApplicationService | None = None,
+    tenant_context: TenantContext | None = None,
+    principal_id: str = "local_operator",
 ) -> FastAPI:
     """Create an API app; no benchmark or target execution occurs here."""
 
@@ -170,6 +182,87 @@ def create_app(
             )
         return HealthResponse(status="ready", version=__version__)
 
+    if service is not None and tenant_context is not None:
+
+        @app.post(
+            "/v1/projects",
+            response_model=ProjectResponse,
+            status_code=status.HTTP_201_CREATED,
+            tags=["projects"],
+        )
+        def create_project(payload: ProjectCreate) -> ProjectResponse:
+            try:
+                project = service.create_project(
+                    tenant_context,
+                    name=payload.name,
+                    created_by=principal_id,
+                    target_policy=payload.target_policy,
+                )
+            except ValueError as exc:
+                raise APIError(400, "invalid_project", str(exc)) from exc
+            return _project_response(project)
+
+        @app.get(
+            "/v1/projects",
+            response_model=list[ProjectResponse],
+            tags=["projects"],
+        )
+        def list_projects() -> list[ProjectResponse]:
+            return [
+                _project_response(project)
+                for project in service.list_projects(tenant_context)
+            ]
+
+        @app.post(
+            "/v1/runs",
+            response_model=RunResponse,
+            status_code=status.HTTP_202_ACCEPTED,
+            tags=["runs"],
+        )
+        def create_run(payload: RunCreate) -> RunResponse:
+            try:
+                run, _created = service.create_run(
+                    tenant_context,
+                    project_id=payload.project_id,
+                    suite_version=payload.suite_version,
+                    seed=payload.seed,
+                    idempotency_key=payload.idempotency_key,
+                )
+            except ValueError as exc:
+                raise APIError(404, "project_not_found", "Project was not found") from exc
+            return _run_response(run)
+
+        @app.get(
+            "/v1/runs/{run_id}", response_model=RunResponse, tags=["runs"]
+        )
+        def get_run(run_id: str) -> RunResponse:
+            run = service.get_run(tenant_context, run_id)
+            if run is None:
+                raise APIError(404, "run_not_found", "Evaluation run was not found")
+            return _run_response(run)
+
+        @app.post(
+            "/v1/runs/{run_id}/cancel",
+            response_model=RunResponse,
+            tags=["runs"],
+        )
+        def cancel_run(run_id: str) -> RunResponse:
+            if not service.cancel_run(tenant_context, run_id):
+                raise APIError(409, "run_not_cancellable", "Run cannot be cancelled")
+            run = service.get_run(tenant_context, run_id)
+            assert run is not None
+            return _run_response(run)
+
+        @app.get("/v1/runs/{run_id}/reports/{format_name}", tags=["reports"])
+        def download_report(run_id: str, format_name: str) -> Response:
+            if format_name not in {"json", "markdown"}:
+                raise APIError(404, "report_not_found", "Report was not found")
+            result = service.read_report(tenant_context, run_id, format_name)
+            if result is None:
+                raise APIError(404, "report_not_found", "Report was not found")
+            body, content_type = result
+            return Response(content=body, media_type=content_type)
+
     return app
 
 
@@ -208,6 +301,27 @@ def _secure_response(response, request_id: str):
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["Cache-Control"] = "no-store"
     return response
+
+
+def _project_response(project: Project) -> ProjectResponse:
+    return ProjectResponse(
+        id=project.id,
+        name=project.name,
+        target_policy=dict(project.target_policy),
+        version=project.version,
+    )
+
+
+def _run_response(run: EvaluationRun) -> RunResponse:
+    return RunResponse(
+        id=run.id,
+        project_id=run.project_id,
+        suite_version=run.suite_version,
+        seed=run.seed,
+        status=run.status.value,
+        attempt=run.attempt,
+        version=run.version,
+    )
 
 
 def _observe_response(

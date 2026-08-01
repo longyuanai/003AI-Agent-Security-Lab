@@ -53,6 +53,19 @@ class ReportArtifactRepository:
         )
         return _from_row(row) if row else None
 
+    def get_for_run(
+        self, run_id: str, format_name: str
+    ) -> ReportArtifact | None:
+        row = self._session.scalar(
+            select(ReportArtifactRow).where(
+                ReportArtifactRow.run_id == run_id,
+                ReportArtifactRow.tenant_id == self._tenant_id,
+                ReportArtifactRow.format == format_name,
+                ReportArtifactRow.deleted_at.is_(None),
+            )
+        )
+        return _from_row(row) if row else None
+
     def mark_deleted(self, artifact_id: str, *, now: datetime) -> bool:
         result = self._session.execute(
             update(ReportArtifactRow)
