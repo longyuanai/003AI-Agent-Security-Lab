@@ -4,6 +4,10 @@ from ai_agent_lab.report.benchmark_evidence import (
     build_benchmark_evidence,
     write_benchmark_evidence,
 )
+from ai_agent_lab.report.benchmark_markdown import (
+    render_benchmark_markdown,
+    write_benchmark_markdown,
+)
 
 from ai_agent_lab.report.correlation import (
     CrossScenarioReport,
@@ -27,6 +31,8 @@ from ai_agent_lab.report.markdown import (
 __all__ = [
     "build_benchmark_evidence",
     "write_benchmark_evidence",
+    "render_benchmark_markdown",
+    "write_benchmark_markdown",
     "CrossScenarioReport",
     "TargetCorrelation",
     "build_correlation_report",

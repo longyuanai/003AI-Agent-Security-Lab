@@ -6,7 +6,10 @@ authors = ["longyuanai"]
 license = "MIT"
 readme = "README.md"
 packages = [{ include = "ai_agent_lab", from = "src" }]
-include = ["src/ai_agent_lab/report/template.md"]
+include = [
+    "src/ai_agent_lab/report/template.md",
+    "src/ai_agent_lab/report/benchmark_template.md",
+]
 
 [tool.poetry.dependencies]
 python = "^3.11"
