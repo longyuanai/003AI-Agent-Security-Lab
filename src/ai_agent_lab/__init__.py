@@ -98,12 +98,23 @@ from ai_agent_lab.sandbox import (
 )
 from ai_agent_lab.scan import scan_payload
 from ai_agent_lab.scenarios import build_scenario_registry, evaluate_demo_scenarios
+from ai_agent_lab.task_suites import (
+    AgentTask,
+    AgentTaskSuite,
+    ControlRun,
+    TaskExecution,
+    TaskKind,
+    TaskSuiteRunner,
+    built_in_task_suites,
+)
 from ai_agent_lab.target import TargetAgent, built_in_targets, get_target
 
 __version__ = "0.1.0"
 
 __all__ = [
     "ATLAS_ENTRY_POINT_GROUP",
+    "AgentTask",
+    "AgentTaskSuite",
     "AttackCase",
     "Detection",
     "Detector",
@@ -133,8 +144,12 @@ __all__ = [
     "AnthropicLLMRouter",
     "RateSummary",
     "CrossScenarioReport",
+    "ControlRun",
     "TargetCorrelation",
     "TacticPluginDescriptor",
+    "TaskExecution",
+    "TaskKind",
+    "TaskSuiteRunner",
     "StateEffect",
     "SuccessOracle",
     "RunResult",
@@ -152,6 +167,7 @@ __all__ = [
     "Trace",
     "Verdict",
     "built_in_scenarios",
+    "built_in_task_suites",
     "built_in_targets",
     "attack_case_from_atlas",
     "apply_trace_effect",
