@@ -5,7 +5,7 @@
 > 目标版本：Commercial Preview → GA  
 > 规范级别：本文件是商用化实施与验收的主规范；与历史 PoC 说明冲突时，以本文件为准。
 
-配套安全分析见 [threat-model.md](threat-model.md)。
+配套安全分析见 [threat-model.md](threat-model.md)，关键技术选择见 [ADR 索引](adr/README.md)。
 
 ## 1. 产品定义与边界
 
