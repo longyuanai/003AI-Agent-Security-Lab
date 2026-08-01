@@ -1,57 +1,140 @@
-# 003 AI-Agent-Security-Lab · v0.1 TODO
+# 003 AI-Agent-Security-Lab · 商用化实施清单
 
-> **项目状态**: v0.1 P1 四项完成 ✅ (114/114 tests passing)
-> **共享接口**: [v0.1-contract.md](../../000shared-llm-core/docs/v0.1-contract.md) (已冻结)
-> **派活模板**: [CODEX_INSTRUCTIONS.md](../../CODEX_INSTRUCTIONS.md)
+> 更新日期：2026-08-01
+> 当前分支：`codex/agent-lab-benchmark-v2`
+> 主规范：[commercial-spec.md](commercial-spec.md)
+> 冻结接口：shared-llm-core v0.1 §1–§6、既有 Finding schema、`scan --json` envelope
+> 状态说明：`done` 已验证并推送；`in_progress` 当前阶段；`planned` 尚未开始；`blocked` 存在外部阻断。
 
----
+## 1. 已完成基线
 
-## P1 · 本项目 v0.1 任务清单
+| ID | 完成项 | 状态 | 证据 |
+|----|--------|------|------|
+| SCEN-001 | 5 个内置脆弱 Agent | done | target/CLI/tests |
+| ATTACK-001 | 10 类攻击与 detector 覆盖 | done | attacks/detector/tests |
+| SAND-001 | 本地 subprocess PoC 沙箱 | done | sandbox/tests；非生产安全边界 |
+| METRIC-001 | 5 × 10 ASR Markdown/JSON | done | metrics/tests |
+| MULTI-003-A | 五角色 MultiAgent 编排 | done | multi_agent/orchestrator/tests |
+| SCEN-003-A | 5 个 v0.5 高级场景 | done | scenarios/tests |
+| REPORT-003-A | 跨场景 Finding 关联报告 | done | report/tests |
+| LAB-CLI-001 | IntegrationGateway CLI envelope | done | scan/cli envelope tests |
+| LAB-LIVE-001 | fake/OpenAI/Anthropic provider 切换 | done | env-gated tests |
+| PHASE2-ATLAS | ATLAS 安全模板与插件注册 | done | atlas/entry points/tests |
+| PHASE2-JUDGE | 显式密钥启用 LLM Judge | done | judge + mock tests |
+| PHASE2-REPORT | ATLAS Markdown/JSON 报告 | done | report/CLI tests |
+| BENCH-001 | AttackCase 与 DeliveryStrategy 分离 | done | `5de994a` |
+| BENCH-002 | 客观 Success Oracle 与安全状态效果 | done | `8890994` |
+| BENCH-003 | 五 Agent 合法/攻击任务套件 | done | `6004978` |
+| BENCH-004 | ASR/Utility/Detector/Judge 指标 | done | `12ae9dd` |
 
-| ID | 任务 | 状态 | 启动日 | 完成日 | 备注 |
-|----|------|------|-------|-------|------|
-| SCEN-001 | 内置脆弱 Agent 扩到 5 个 (SQLi、邮件、文件 RAG、Web 浏览器、Code-Act) | done | 2026-07-24 | 2026-07-24 | 5 profiles + CLI |
-| ATTACK-001 | 攻击场景扩到 10 类 (加间接注入、token 窃取、shell escape 等) | done | 2026-07-24 | 2026-07-24 | 10 detector-backed classes |
-| SAND-001 | 沙箱化 (Docker 隔离 + syscall 白名单) | done | 2026-07-24 | 2026-07-24 | stdlib subprocess guard |
-| METRIC-001 | ASR (Attack Success Rate) 评估报告 | done | 2026-07-24 | 2026-07-24 | Markdown + JSON, 50 combos |
+最近完整回归基线：246 tests passed。每个后续里程碑必须重新执行完整回归，不能沿用该数字声称通过。
 
----
+## 2. M0 · 商用技术基线
 
-## 派活模板（复制即可）
+| ID | 任务 | 状态 | 验收 |
+|----|------|------|------|
+| COMM-DOC-001 | 商用架构、安全、隐私、API、SLO 和 DoD | done | 文档一致、链接检查通过、246 tests passed |
+| COMM-THREAT-001 | STRIDE/LINDDUN 威胁模型 | planned | 控制面、执行面、租户、LLM connector 数据流与缓解措施 |
+| COMM-ADR-001 | ADR 模板和首批架构决策 | planned | 存储、API 框架、任务租赁、认证、执行器各有 ADR |
 
-发给 Codex 时,把这个模板 + 上面 issue 表里挑的一行 ID 拼起来:
+## 3. M1 · Benchmark 产品内核
 
+| ID | 任务 | 状态 | 验收 |
+|----|------|------|------|
+| BENCH-005 | 隐私安全 RunRecord + JSON evidence | planned | 固定 seed/版本/hash；不含 raw prompt/history/secret；≥ 6 tests |
+| BENCH-006 | Benchmark Markdown 报告 | planned | summary、维度表、objective evidence；snapshot tests |
+| BENCH-007 | `benchmark` CLI | planned | `--offline --seed --dry-run --report --json-evidence`；保持 scan envelope |
+| BENCH-008 | 文档、全量回归与可复现 smoke | planned | Windows 命令、compileall、CLI 两次同 seed 一致 |
+
+M1 退出条件：冻结接口不变；全量测试通过；输出无原始 prompt、对话历史和 secret；每项独立 commit/push。
+
+## 4. M2 · 可部署服务
+
+| ID | 任务 | 状态 | 验收 |
+|----|------|------|------|
+| API-001 | `/v1` schema、统一错误和 request ID | planned | OpenAPI/契约测试；错误不泄漏内部信息 |
+| STORE-001 | Repository ports + SQLite/PostgreSQL adapters | planned | tenant-scoped 查询、迁移、事务与集成测试 |
+| RUN-001 | EvaluationRun 状态机、lease、retry、cancel | planned | 并发、崩溃重领、终态和幂等测试 |
+| ART-001 | 文件/S3-compatible artifact store | planned | sha256、授权下载、TTL 和删除测试 |
+| OBS-001 | JSON 日志、metrics、live/ready health | planned | 无 prompt/secret；故障状态准确 |
+| E2E-001 | API → worker → evidence → report | planned | 重启恢复和端到端测试 |
+
+M2 退出条件：服务可单机部署；任务不因进程重启丢失；数据库恢复流程实际演练。
+
+## 5. M3 · 企业身份与安全执行器
+
+| ID | 任务 | 状态 | 验收 |
+|----|------|------|------|
+| AUTH-001 | API key hash、OIDC principal、RBAC | planned | 权限矩阵和拒绝路径测试 |
+| TENANT-001 | tenant context 与 repository 强制隔离 | planned | 跨租户/IDOR 测试为发布阻断项 |
+| QUOTA-001 | tenant/project 并发、速率和成本配额 | planned | 超额明确拒绝且可审计 |
+| EXEC-001 | 容器 Sandbox Broker/Runner | planned | non-root、read-only、cap-drop、资源限制 |
+| NET-001 | 默认 deny-egress + SSRF 防护 | planned | DNS rebinding、private/link-local、redirect 测试 |
+| SECRET-001 | secret reference 与全链路脱敏 | planned | log/error/evidence 泄漏扫描 |
+
+M3 退出条件：完成跨租户安全测试、进程树清理测试和默认断网验证；subprocess 模式不能用于生产多租户。
+
+## 6. M4 · 真实生态与 CI
+
+| ID | 任务 | 状态 | 验收 |
+|----|------|------|------|
+| SDK-001 | Target/Attack/Detector/Judge adapter SDK | planned | 版本协商、能力声明、认证测试套件 |
+| ADAPT-001 | 真实 Agent adapter 1 | planned | 授权 fixture 环境 E2E |
+| ADAPT-002 | 真实 Agent/MCP adapter 2 | planned | 授权 fixture 环境 E2E |
+| CI-001 | CI benchmark 与基线差异门禁 | planned | 可配置阈值、SARIF/JUnit 或稳定 JSON 输出 |
+| REGRESS-001 | SuiteVersion 与基准比较 | planned | immutable manifest、回归趋势与兼容测试 |
+
+M4 退出条件：至少两个真实 adapter 通过同一 certification suite；完成一个内部或授权客户试点。
+
+## 7. M5 · Commercial Preview
+
+| ID | 任务 | 状态 | 验收 |
+|----|------|------|------|
+| UI-001 | 最小 Web 控制台 | planned | 项目、运行、Finding、报告，不绕过 API 权限 |
+| AUDIT-001 | append-only audit 与导出 | planned | 登录、授权、配置、运行、下载全覆盖 |
+| OPS-001 | Dashboard、告警、runbook | planned | SLO 可见，关键告警演练 |
+| BACKUP-001 | 备份恢复与删除验证 | planned | RPO/RTO 演练记录 |
+| DIST-001 | 安装、升级、回滚、配置文档 | planned | 全新环境和上一版本升级 smoke |
+| PILOT-001 | 单租户试点 | planned | 用户验收、缺陷闭环、安全评审 |
+
+## 8. M6 · GA 门禁
+
+| ID | 任务 | 状态 | 验收 |
+|----|------|------|------|
+| SUPPLY-001 | 锁定依赖、SBOM、provenance、签名发布 | planned | CI 可验证制品来源与 checksum |
+| SEC-REVIEW-001 | 独立渗透测试与修复 | planned | Critical/High 清零或正式风险接受 |
+| PERF-001 | 负载、容量和降级测试 | planned | 达到商用 SLO，超载不丢任务 |
+| COMPLY-001 | 隐私、保留、删除、ToS 与授权流程 | planned | 法务/安全审核记录 |
+| SUPPORT-001 | 兼容政策、漏洞响应和支持 SLA | planned | 对外发布文档齐全 |
+
+GA 禁止条件：跨租户问题、secret 泄漏、执行器默认可联网、未修复 Critical/High、未验证恢复、冻结契约破坏。
+
+## 9. 每项任务执行规范
+
+1. 开工前读取相关规范、接口和现有测试。
+2. 修改范围最小；新增生产依赖必须先写 ADR。
+3. 每个 issue 至少 3 个有意义的 test function；安全关键 issue 应覆盖拒绝路径。
+4. Windows 验证命令：
+
+```powershell
+& 'C:\Users\15072\AppData\Local\Programs\Python\Python314\python.exe' `
+  -m pytest tests/ `
+  --basetemp=C:/pytest-tmp/003-commercial `
+  -o addopts= `
+  -q --tb=short
 ```
-[{ISSUE_ID}] 003 AI-Agent-Security-Lab · {一句话}
 
-## 背景
-- 项目: 003 AI-Agent-Security-Lab
-- 路径: E:\001项目\000开发\003AI+网络安全\003AI Agent安全靶场
-- 接口契约: 000shared-llm-core/docs/v0.1-contract.md (已冻结)
+5. 不在测试中访问真实 LLM 或未授权外网。
+6. 不提交 API Key、Token、客户数据或真实恶意 payload。
+7. 每个任务独立 commit，并推送 `codex/agent-lab-benchmark-v2`。
+8. 回报：Files / Tests / Compliance / Known Issues / Rollback。
 
-## 必须做的事
-1. <具体动作 1,含文件路径>
-2. <具体动作 2>
-3. <具体动作 3>
+## 10. 当前执行顺序
 
-## 验收
-- [ ] pytest 全绿
-- [ ] 新增测试 ≥ N 个
-- [ ] CLI smoke test 通过 (粘贴输出)
-- [ ] 改动文件清单 (git diff --stat)
+1. `COMM-DOC-001`：完成本文档与商用技术基线。
+2. `COMM-THREAT-001`：威胁模型与信任边界。
+3. `COMM-ADR-001`：实现前关键技术决策。
+4. `BENCH-005` 至 `BENCH-008`：完成当前 benchmark-v2 分支。
+5. 进入 M2；M2 完成并评审后再启动 M3。
 
-## 回报格式
-**ID**: <ISSUE-ID>
-**Files changed**: <列表>
-**Tests**: X/X passed
-**CLI smoke**: <输出片段>
-**Deviations**: <如有,说明原因>
-```
-
----
-
-## 复盘节奏
-
-- 每周一 09:00: 跑 `pytest` 全量,状态写到本表
-- 每周五 17:00: review 完成的 issue,标 done
-- 每月 1 号: 检查 shared-llm-core 是否有 breaking change
+不得为了追求“商用”一次性引入 Kubernetes、Redis、消息队列和多个微服务。只有测得模块化单体无法满足容量或隔离目标时，才通过 ADR 拆分。
