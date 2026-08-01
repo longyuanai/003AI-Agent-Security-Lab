@@ -7,8 +7,8 @@
 ### 实现状态（2026-08-01）
 
 - 已实现：5 个脆弱 Agent、10 类攻击、50 组合 ASR、subprocess PoC 沙箱、多 Agent 场景、MITRE ATLAS 安全模板、可选 LLM Judge、Markdown/JSON 报告。
-- benchmark-v2 分支已实现：Attack/Delivery 分离、客观 Success Oracle、五 Agent 合法/攻击任务套件、安全与效用指标。
-- 待实现：隐私安全 benchmark evidence/CLI、版本化服务 API、持久化、身份权限、容器执行器、可观测与商业发布门禁。
+- benchmark-v2 分支已实现：Attack/Delivery 分离、客观 Success Oracle、五 Agent 合法/攻击任务套件、安全与效用指标、隐私安全 evidence/Markdown 和 benchmark CLI。
+- 待实现：版本化服务 API、持久化、身份权限、容器执行器、可观测与商业发布门禁。
 - 当前 subprocess sandbox 不是生产多租户安全边界；当前项目不得直接作为公网任意代码执行服务部署。
 
 ---

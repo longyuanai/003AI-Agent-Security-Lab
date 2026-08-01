@@ -1,9 +1,15 @@
 # AI-Agent-Security-Lab
 
-> AI Agent security range — vulnerable target agents + attack scenarios + detection.
+> Offline-first AI Agent security benchmark and authorized security range.
 > Seventh project of the **longyuanai AI Security Agent suite**.
 
-## What it does (PoC, v0.1)
+The repository currently provides a tested benchmark core and deliberately
+vulnerable local fixtures. Commercial Preview capabilities are being built in
+stages; the current subprocess sandbox is not a production multi-tenant
+security boundary. See the [commercial technical baseline](docs/commercial-spec.md),
+[threat model](docs/threat-model.md), and [ADR index](docs/adr/README.md).
+
+## What it does
 
 Runs five deliberately vulnerable Agent profiles against 10 built-in attack
 scenarios, scores each trace through a heuristic detector (and optionally an
@@ -27,7 +33,7 @@ attack payload ──► Target Agent (read_file / http_fetch / exec_shell)
                        Markdown Report
 ```
 
-## PoC shortcuts
+## Current implementation boundaries
 
 - **Target agents are hard-coded**. No real LLM call in the routing loop — the
   tool-selection logic is regex-based so the demo is fully reproducible.
@@ -114,8 +120,83 @@ python -m ai_agent_lab.cli metrics \
   --json asr-report.json
 ```
 
-Attack success means the vulnerable Agent emitted a non-empty tool call.
-Detector verdict and latency are recorded independently in each result row.
+This legacy matrix treats a non-empty vulnerable tool call as success. For
+commercial evaluation, use the paired benchmark below: it uses an objective
+state-effect Oracle and measures benign-task utility independently.
+
+## Commercial benchmark workflow
+
+The benchmark runs one benign control and one attack task for each of the five
+built-in Agents. It reports:
+
+- objective Attack Success Rate (ASR);
+- benign task Utility and False Refusal rate;
+- Detector TPR/FNR/FPR;
+- LLM Judge agreement with the objective Oracle;
+- Agent, attack-category, and delivery-strategy breakdowns.
+
+The default is deterministic, offline evaluation. It writes an audit-friendly
+Markdown report and normalized JSON evidence:
+
+```powershell
+& 'C:\Users\15072\AppData\Local\Programs\Python\Python314\python.exe' `
+  -m ai_agent_lab benchmark `
+  --offline `
+  --seed 2026 `
+  --report output/benchmark.md `
+  --json-evidence output/benchmark.json `
+  --json
+```
+
+Preview the ten-task plan without executing or writing files:
+
+```powershell
+& 'C:\Users\15072\AppData\Local\Programs\Python\Python314\python.exe' `
+  -m ai_agent_lab benchmark --offline --seed 2026 --dry-run
+```
+
+`benchmark_fingerprint` excludes wall-clock latency and generation time. Two
+runs with the same suite, rules, lab version, seed, and objective results must
+produce the same fingerprint. Their `run_id`, timestamps, and observed latency
+may differ, because they identify separate executions.
+
+### Privacy contract
+
+Benchmark evidence contains task/Agent/category identifiers, input SHA-256,
+normalized tool and StateEffect metadata, rule versions, metrics, runtime
+metadata, and artifact manifests. It does not persist raw prompts, model
+messages, tool raw output, API keys, Authorization headers, or Agent
+conversation history.
+
+Input hashes prove fixture identity; they are not treated as anonymization.
+Reports are written atomically to reduce partial artifact risk.
+
+### Optional live Judge
+
+Offline mode is the commercial default. Live evaluation is enabled only when
+the operator explicitly supplies the existing `LAB_LLM_KEY` configuration and
+passes `--live`:
+
+```powershell
+$env:LAB_LLM_KEY = "<secret-reference-at-runtime>"
+$env:LAB_LLM_MODEL = "<approved-model>"
+$env:LAB_LLM_BASE_URL = "https://approved-provider.example/v1"
+
+python -m ai_agent_lab benchmark --live --seed 2026 --json
+```
+
+Tests never call a live provider. If `--live` is selected without a key, the
+Judge safely falls back to the offline stub and reports `judge_mode: stub`.
+
+### Required Windows verification
+
+```powershell
+& 'C:\Users\15072\AppData\Local\Programs\Python\Python314\python.exe' `
+  -m pytest tests/ `
+  --basetemp=C:/pytest-tmp/003-commercial `
+  -o addopts= `
+  -q --tb=short
+```
 
 ## v0.5 multi-agent scenarios
 

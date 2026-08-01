@@ -44,9 +44,9 @@
 | BENCH-005 | 隐私安全 RunRecord + JSON evidence | done | 固定 seed/版本/hash；9 tests；255-test 全量回归通过 |
 | BENCH-006 | Benchmark Markdown 报告 | done | 原子写入、隐私声明、objective evidence、6 tests；261 passed |
 | BENCH-007 | `benchmark` CLI | done | 8 tests；offline/live gating、dry-run、报告/evidence、scan envelope；269 passed |
-| BENCH-008 | 文档、全量回归与可复现 smoke | planned | Windows 命令、compileall、CLI 两次同 seed 一致 |
+| BENCH-008 | 文档、全量回归与可复现 smoke | done | compileall、269 passed、同 seed fingerprint 一致、报告产物验证 |
 
-M1 退出条件：冻结接口不变；全量测试通过；输出无原始 prompt、对话历史和 secret；每项独立 commit/push。
+M1 状态：**done（2026-08-01）**。冻结接口不变；269 tests passed；输出无原始 prompt、对话历史和 secret；BENCH-005/006/007 均已独立 commit/push。
 
 ## 4. M2 · 可部署服务
 
@@ -131,10 +131,10 @@ GA 禁止条件：跨租户问题、secret 泄漏、执行器默认可联网、�
 
 ## 10. 当前执行顺序
 
-1. `COMM-DOC-001`：完成本文档与商用技术基线。
-2. `COMM-THREAT-001`：威胁模型与信任边界。
-3. `COMM-ADR-001`：实现前关键技术决策。
-4. `BENCH-005` 至 `BENCH-008`：完成当前 benchmark-v2 分支。
-5. 进入 M2；M2 完成并评审后再启动 M3。
+1. M0 商用文档：done。
+2. M1 Benchmark 产品内核：done。
+3. 下一任务 `API-001`：建立 `/v1` schema、统一错误和 request ID。
+4. 随后执行 `STORE-001`、`RUN-001`、`ART-001`、`OBS-001`、`E2E-001`。
+5. M2 完成并评审后再启动 M3。
 
 不得为了追求“商用”一次性引入 Kubernetes、Redis、消息队列和多个微服务。只有测得模块化单体无法满足容量或隔离目标时，才通过 ADR 拆分。
