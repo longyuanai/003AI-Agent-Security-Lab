@@ -43,7 +43,7 @@
 |----|------|------|------|
 | BENCH-005 | 隐私安全 RunRecord + JSON evidence | done | 固定 seed/版本/hash；9 tests；255-test 全量回归通过 |
 | BENCH-006 | Benchmark Markdown 报告 | done | 原子写入、隐私声明、objective evidence、6 tests；261 passed |
-| BENCH-007 | `benchmark` CLI | planned | `--offline --seed --dry-run --report --json-evidence`；保持 scan envelope |
+| BENCH-007 | `benchmark` CLI | done | 8 tests；offline/live gating、dry-run、报告/evidence、scan envelope；269 passed |
 | BENCH-008 | 文档、全量回归与可复现 smoke | planned | Windows 命令、compileall、CLI 两次同 seed 一致 |
 
 M1 退出条件：冻结接口不变；全量测试通过；输出无原始 prompt、对话历史和 secret；每项独立 commit/push。

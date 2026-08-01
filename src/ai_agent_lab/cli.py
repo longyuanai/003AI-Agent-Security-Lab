@@ -11,7 +11,7 @@ from __future__ import annotations
 import asyncio
 import json
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import click
@@ -19,14 +19,19 @@ from rich.console import Console
 
 from ai_agent_lab import __version__
 from ai_agent_lab.attacks import built_in_scenarios, get_scenario
+from ai_agent_lab.benchmark_metrics import evaluate_task_benchmark
+from ai_agent_lab.judge import StubLabJudge, build_lab_judge
 from ai_agent_lab.metrics import evaluate_asr, write_asr_reports
 from ai_agent_lab.multi_agent import run_offline_mcp_abuse_demo
 from ai_agent_lab.orchestrator import LabMission, build_llm_runtime
 from ai_agent_lab.report import (
     build_json_evidence,
+    build_benchmark_evidence,
     build_demo_correlation_report,
     default_report_path,
     render_red_team_markdown,
+    write_benchmark_evidence,
+    write_benchmark_markdown,
     write_json_evidence,
     write_correlation_markdown,
     write_red_team_markdown,
@@ -41,6 +46,7 @@ from ai_agent_lab.sandbox import Sandbox, SandboxError, SandboxPolicy
 from ai_agent_lab.scan import scan_payload
 from ai_agent_lab.scenarios import evaluate_demo_scenarios
 from ai_agent_lab.target import built_in_targets
+from ai_agent_lab.task_suites import built_in_task_suites
 
 console = Console()
 
@@ -383,6 +389,124 @@ def metrics_cmd(markdown_path: str, json_path: str) -> None:
     )
     console.print(f"[green]Wrote[/green] {md_path}")
     console.print(f"[green]Wrote[/green] {js_path}")
+
+
+@cli.command("benchmark")
+@click.option(
+    "--offline/--live",
+    default=True,
+    show_default=True,
+    help="Use the deterministic stub judge, or explicitly allow env-gated live judge.",
+)
+@click.option(
+    "--seed",
+    type=click.IntRange(min=0),
+    default=0,
+    show_default=True,
+    help="Non-negative seed recorded in the reproducibility manifest.",
+)
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    help="Print the privacy-safe execution plan without running any task.",
+)
+@click.option(
+    "--report",
+    "report_path",
+    type=click.Path(),
+    help="Markdown output path; defaults to output/benchmark-<UTC>.md.",
+)
+@click.option(
+    "--json-evidence",
+    "evidence_path",
+    type=click.Path(),
+    help="JSON evidence path; defaults to the report path with a .json suffix.",
+)
+@click.option(
+    "--json",
+    "json_output",
+    is_flag=True,
+    help="Emit a compact machine-readable run summary to stdout.",
+)
+def benchmark_cmd(
+    offline: bool,
+    seed: int,
+    dry_run: bool,
+    report_path: str | None,
+    evidence_path: str | None,
+    json_output: bool,
+) -> None:
+    """Run paired benign/attack tasks with privacy-safe evidence."""
+
+    suites = built_in_task_suites()
+    if dry_run:
+        plan = {
+            "mode": "dry-run",
+            "offline": offline,
+            "seed": seed,
+            "agents": sorted(suites),
+            "tasks": [
+                {
+                    "task_id": task.id,
+                    "agent": task.agent,
+                    "kind": task.kind.value,
+                    "category": task.category,
+                    "strategy": task.strategy,
+                }
+                for suite in suites.values()
+                for task in (*suite.benign_tasks, *suite.attack_tasks)
+            ],
+            "writes_files": False,
+        }
+        click.echo(json.dumps(plan, ensure_ascii=False, sort_keys=True))
+        return
+
+    judge = StubLabJudge() if offline else build_lab_judge()
+    report = evaluate_task_benchmark(suites=suites, judge=judge)
+    generated_at = datetime.now(timezone.utc)
+    generated_at_text = generated_at.isoformat()
+    markdown_path = (
+        Path(report_path)
+        if report_path
+        else Path("output")
+        / f"benchmark-{generated_at.strftime('%Y%m%dT%H%M%SZ')}.md"
+    )
+    json_path = (
+        Path(evidence_path)
+        if evidence_path
+        else markdown_path.with_suffix(".json")
+    )
+    evidence = build_benchmark_evidence(
+        report,
+        generated_at=generated_at_text,
+        seed=seed,
+        lab_version=__version__,
+        suites=suites,
+    )
+    write_benchmark_evidence(evidence, json_path)
+    write_benchmark_markdown(evidence, markdown_path)
+    result = {
+        "run_id": evidence["run_id"],
+        "benchmark_fingerprint": evidence["benchmark_fingerprint"],
+        "judge_mode": judge.mode,
+        "offline": offline,
+        "seed": seed,
+        "summary": evidence["summary"],
+        "report_path": str(markdown_path),
+        "evidence_path": str(json_path),
+    }
+    if json_output:
+        click.echo(json.dumps(result, ensure_ascii=False, sort_keys=True))
+        return
+    summary = report.summary
+    console.print(
+        f"[bold]Runs:[/bold] {summary.dimension.total}  "
+        f"[bold]ASR:[/bold] {summary.dimension.asr:.1%}  "
+        f"[bold]Utility:[/bold] {summary.dimension.utility_rate:.1%}  "
+        f"[bold]Judge:[/bold] {judge.mode}"
+    )
+    console.print(f"[green]Wrote[/green] {markdown_path}")
+    console.print(f"[green]Wrote[/green] {json_path}")
 
 
 @cli.command("multi-agent-demo")
