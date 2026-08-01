@@ -24,6 +24,14 @@ from ai_agent_lab.attack_contracts import (
     get_delivery_strategy,
     list_tactic_entry_points,
 )
+from ai_agent_lab.benchmark_metrics import (
+    BenchmarkRecord,
+    BenchmarkSummary,
+    DimensionMetrics,
+    TaskBenchmarkReport,
+    evaluate_task_benchmark,
+    summarize_benchmark,
+)
 from ai_agent_lab.datatypes import (
     Detection,
     RunResult,
@@ -116,8 +124,11 @@ __all__ = [
     "AgentTask",
     "AgentTaskSuite",
     "AttackCase",
+    "BenchmarkRecord",
+    "BenchmarkSummary",
     "Detection",
     "Detector",
+    "DimensionMetrics",
     "DeliveredAttack",
     "DeliveryStrategy",
     "DELIVERY_STRATEGIES",
@@ -148,6 +159,7 @@ __all__ = [
     "TargetCorrelation",
     "TacticPluginDescriptor",
     "TaskExecution",
+    "TaskBenchmarkReport",
     "TaskKind",
     "TaskSuiteRunner",
     "StateEffect",
@@ -179,6 +191,7 @@ __all__ = [
     "build_demo_correlation_report",
     "build_scenario_registry",
     "evaluate_asr",
+    "evaluate_task_benchmark",
     "evaluate_demo_scenarios",
     "get_target",
     "get_delivery_strategy",
@@ -193,6 +206,7 @@ __all__ = [
     "run_mcp_abuse",
     "run_offline_mcp_abuse_demo",
     "scan_payload",
+    "summarize_benchmark",
     "write_asr_reports",
     "__version__",
 ]

@@ -28,6 +28,7 @@ class AgentTask:
     input_text: str
     expected_tool: str
     category: str = "benign"
+    strategy: str = "direct"
 
     def __post_init__(self) -> None:
         if not self.id or not self.agent:
@@ -78,6 +79,7 @@ class TaskExecution:
                 "agent": self.task.agent,
                 "kind": self.task.kind.value,
                 "category": self.task.category,
+                "strategy": self.task.strategy,
                 "expected_tool": self.task.expected_tool,
             },
             "trace": self.trace.to_dict(),
@@ -160,6 +162,14 @@ _ATTACK_CATEGORY_BY_AGENT = {
     "code_act": "code_act_privilege_escalation",
 }
 
+_ATTACK_STRATEGY_BY_AGENT = {
+    "sql_assistant": "direct",
+    "email_assistant": "email_resource",
+    "file_rag": "document_resource",
+    "web_browser": "web_resource",
+    "code_act": "tool_output",
+}
+
 
 def built_in_task_suites() -> dict[str, AgentTaskSuite]:
     """Build five suites using the canonical scenarios as attack tasks."""
@@ -235,6 +245,7 @@ def _attack_task(agent: str, scenario: Scenario) -> AgentTask:
         input_text=scenario.payload,
         expected_tool=trace.tool_call.name,
         category=scenario.category,
+        strategy=_ATTACK_STRATEGY_BY_AGENT[agent],
     )
 
 
