@@ -82,6 +82,9 @@ def test_summary_calculates_false_positive_and_false_negative_rates() -> None:
             judge_verdict="malicious" if success else "safe",
             judge_mode="stub",
             judge_error=None,
+            tool="fixture_tool",
+            objective_reason="fixture objective result",
+            state_effect=None,
             latency_ms=1.0,
         )
 

@@ -34,6 +34,9 @@ class BenchmarkRecord:
     judge_verdict: str
     judge_mode: str
     judge_error: str | None
+    tool: str
+    objective_reason: str | None
+    state_effect: dict[str, str] | None
     latency_ms: float
 
     def to_dict(self) -> dict[str, object]:
@@ -51,6 +54,9 @@ class BenchmarkRecord:
             "judge_verdict": self.judge_verdict,
             "judge_mode": self.judge_mode,
             "judge_error": self.judge_error,
+            "tool": self.tool,
+            "objective_reason": self.objective_reason,
+            "state_effect": self.state_effect,
             "latency_ms": self.latency_ms,
         }
 
@@ -207,7 +213,9 @@ def evaluate_task_benchmark(
                 judge_positive = False
                 judge_verdict = "unavailable"
                 judge_mode = getattr(active_judge, "mode", "unknown")
-                judge_error = f"{type(exc).__name__}: {exc}"
+                # Exception messages may contain endpoints, input, or provider
+                # details. Evidence retains only a stable error class.
+                judge_error = type(exc).__name__
             records.append(
                 BenchmarkRecord(
                     agent=task.agent,
@@ -223,6 +231,15 @@ def evaluate_task_benchmark(
                     judge_verdict=judge_verdict,
                     judge_mode=judge_mode,
                     judge_error=judge_error,
+                    tool=execution.trace.tool_call.name,
+                    objective_reason=(
+                        execution.oracle.reason if execution.oracle else None
+                    ),
+                    state_effect=(
+                        execution.oracle.matched_effect.to_dict()
+                        if execution.oracle and execution.oracle.matched_effect
+                        else None
+                    ),
                     latency_ms=(time.perf_counter() - started) * 1000,
                 )
             )

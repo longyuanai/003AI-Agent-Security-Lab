@@ -41,7 +41,7 @@
 
 | ID | 任务 | 状态 | 验收 |
 |----|------|------|------|
-| BENCH-005 | 隐私安全 RunRecord + JSON evidence | planned | 固定 seed/版本/hash；不含 raw prompt/history/secret；≥ 6 tests |
+| BENCH-005 | 隐私安全 RunRecord + JSON evidence | done | 固定 seed/版本/hash；9 tests；255-test 全量回归通过 |
 | BENCH-006 | Benchmark Markdown 报告 | planned | summary、维度表、objective evidence；snapshot tests |
 | BENCH-007 | `benchmark` CLI | planned | `--offline --seed --dry-run --report --json-evidence`；保持 scan envelope |
 | BENCH-008 | 文档、全量回归与可复现 smoke | planned | Windows 命令、compileall、CLI 两次同 seed 一致 |
