@@ -68,4 +68,40 @@ class ProjectRow(Base):
     version: Mapped[int] = mapped_column(Integer, nullable=False)
 
 
-__all__ = ["Base", "ProjectRow", "TenantRow"]
+class EvaluationRunRow(Base):
+    __tablename__ = "evaluation_runs"
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id", "idempotency_key", name="uq_runs_tenant_idempotency"
+        ),
+        CheckConstraint("seed >= 0", name="seed_non_negative"),
+        CheckConstraint("attempt >= 0", name="attempt_non_negative"),
+        CheckConstraint("fencing_token >= 0", name="fencing_non_negative"),
+        CheckConstraint("version >= 1", name="version_positive"),
+        Index("ix_runs_claim", "status", "lease_expires_at", "created_at"),
+        Index("ix_runs_tenant_created", "tenant_id", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(
+        String(128), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
+    )
+    project_id: Mapped[str] = mapped_column(
+        String(128), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False
+    )
+    suite_version: Mapped[str] = mapped_column(String(128), nullable=False)
+    seed: Mapped[int] = mapped_column(Integer, nullable=False)
+    idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    attempt: Mapped[int] = mapped_column(Integer, nullable=False)
+    fencing_token: Mapped[int] = mapped_column(Integer, nullable=False)
+    lease_owner: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    lease_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    version: Mapped[int] = mapped_column(Integer, nullable=False)
+
+
+__all__ = ["Base", "EvaluationRunRow", "ProjectRow", "TenantRow"]
