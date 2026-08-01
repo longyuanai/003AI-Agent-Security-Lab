@@ -5,6 +5,8 @@
 > 目标版本：Commercial Preview → GA  
 > 规范级别：本文件是商用化实施与验收的主规范；与历史 PoC 说明冲突时，以本文件为准。
 
+配套安全分析见 [threat-model.md](threat-model.md)。
+
 ## 1. 产品定义与边界
 
 AI-Agent-Security-Lab 是面向 AI Agent 的安全评测与回归平台。平台在授权、隔离的环境中运行安全测试任务，使用客观状态效果、规则检测器和可选 LLM Judge 分别评估攻击成功、检测质量与合法任务效用，并生成可审计、可复现的证据。
@@ -396,4 +398,3 @@ queued -> preparing -> running -> evaluating -> completed
 | 2026-08-01 | Oracle 与 Detector/Judge 分离 | 避免用主观检测结果定义攻击成功 |
 | 2026-08-01 | 默认不保存 raw prompt/history | 降低隐私、合规和泄密风险 |
 | 2026-08-01 | Commercial Preview 先做单租户 | 多租户任意代码执行风险过高，需在强隔离后开放 |
-

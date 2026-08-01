@@ -34,7 +34,7 @@
 | ID | 任务 | 状态 | 验收 |
 |----|------|------|------|
 | COMM-DOC-001 | 商用架构、安全、隐私、API、SLO 和 DoD | done | 文档一致、链接检查通过、246 tests passed |
-| COMM-THREAT-001 | STRIDE/LINDDUN 威胁模型 | planned | 控制面、执行面、租户、LLM connector 数据流与缓解措施 |
+| COMM-THREAT-001 | STRIDE/LINDDUN 威胁模型 | done | 6 个信任边界、24 个 STRIDE/LINDDUN 风险与发布测试清单 |
 | COMM-ADR-001 | ADR 模板和首批架构决策 | planned | 存储、API 框架、任务租赁、认证、执行器各有 ADR |
 
 ## 3. M1 · Benchmark 产品内核
