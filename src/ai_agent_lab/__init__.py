@@ -11,6 +11,19 @@ Run demo: `python -m ai_agent_lab.cli run --scenario demo --output report.md`
 """
 
 from ai_agent_lab.attacks import Scenario, built_in_scenarios
+from ai_agent_lab.attack_contracts import (
+    ATLAS_ENTRY_POINT_GROUP,
+    DELIVERY_STRATEGIES,
+    AttackCase,
+    DeliveredAttack,
+    DeliveryStrategy,
+    ExecutionPlan,
+    TacticPluginDescriptor,
+    attack_case_from_atlas,
+    build_execution_plan,
+    get_delivery_strategy,
+    list_tactic_entry_points,
+)
 from ai_agent_lab.datatypes import (
     Detection,
     RunResult,
@@ -80,8 +93,14 @@ from ai_agent_lab.target import TargetAgent, built_in_targets, get_target
 __version__ = "0.1.0"
 
 __all__ = [
+    "ATLAS_ENTRY_POINT_GROUP",
+    "AttackCase",
     "Detection",
     "Detector",
+    "DeliveredAttack",
+    "DeliveryStrategy",
+    "DELIVERY_STRATEGIES",
+    "ExecutionPlan",
     "HeuristicDetector",
     "LLMDetector",
     "JudgeResult",
@@ -102,6 +121,7 @@ __all__ = [
     "RateSummary",
     "CrossScenarioReport",
     "TargetCorrelation",
+    "TacticPluginDescriptor",
     "RunResult",
     "Runner",
     "Sandbox",
@@ -117,6 +137,8 @@ __all__ = [
     "Verdict",
     "built_in_scenarios",
     "built_in_targets",
+    "attack_case_from_atlas",
+    "build_execution_plan",
     "build_mcp_abuse_mission",
     "build_llm_runtime",
     "build_lab_judge",
@@ -126,6 +148,8 @@ __all__ = [
     "evaluate_asr",
     "evaluate_demo_scenarios",
     "get_target",
+    "get_delivery_strategy",
+    "list_tactic_entry_points",
     "render_markdown",
     "render_asr_markdown",
     "render_correlation_markdown",
