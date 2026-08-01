@@ -56,7 +56,7 @@ M1 状态：**done（2026-08-01）**。冻结接口不变；269 tests passed；�
 | STORE-001 | Repository ports + SQLite/PostgreSQL adapters | done | tenant-bound Repository、Alembic drift check、14 tests；296 passed |
 | RUN-001 | EvaluationRun 状态机、lease、retry、cancel | done | 幂等、过期重领、fencing、取消、14 tests；310 passed |
 | ART-001 | 文件/S3-compatible artifact store | done | 原子文件 adapter/port、sha256、TTL、symlink/traversal、11 tests；321 passed |
-| OBS-001 | JSON 日志、metrics、live/ready health | planned | 无 prompt/secret；故障状态准确 |
+| OBS-001 | JSON 日志、metrics、live/ready health | done | allowlist JSON 日志、route-template metrics、9 tests；330 passed |
 | E2E-001 | API → worker → evidence → report | planned | 重启恢复和端到端测试 |
 
 M2 退出条件：服务可单机部署；任务不因进程重启丢失；数据库恢复流程实际演练。

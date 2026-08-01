@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import inspect
+import logging
 import re
+import time
 import uuid
 from collections.abc import Awaitable, Callable
 from typing import Any
@@ -16,6 +18,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from ai_agent_lab import __version__
 from ai_agent_lab.api.errors import APIError, error_envelope
 from ai_agent_lab.api.schemas import ErrorEnvelope, HealthResponse
+from ai_agent_lab.observability import MetricsRegistry
 
 
 DEFAULT_MAX_REQUEST_BYTES = 1_048_576
@@ -28,12 +31,16 @@ def create_app(
     readiness_check: ReadinessCheck | None = None,
     expose_docs: bool = False,
     max_request_bytes: int = DEFAULT_MAX_REQUEST_BYTES,
+    metrics: MetricsRegistry | None = None,
+    logger: logging.Logger | None = None,
 ) -> FastAPI:
     """Create an API app; no benchmark or target execution occurs here."""
 
     if max_request_bytes < 1:
         raise ValueError("max_request_bytes must be positive")
     check = readiness_check or (lambda: True)
+    active_metrics = metrics or MetricsRegistry()
+    active_logger = logger or logging.getLogger("ai_agent_lab.api")
     app = FastAPI(
         title="AI Agent Security Lab API",
         version=__version__,
@@ -44,6 +51,7 @@ def create_app(
 
     @app.middleware("http")
     async def commercial_boundary(request: Request, call_next):
+        started = time.perf_counter()
         request_id = _request_id(request.headers.get("x-request-id"))
         request.state.request_id = request_id
         content_length = request.headers.get("content-length")
@@ -59,7 +67,14 @@ def create_app(
                     message="Request body exceeds the configured limit",
                     request_id=request_id,
                 )
-                return _secure_response(response, request_id)
+                return _observe_response(
+                    request,
+                    response,
+                    request_id=request_id,
+                    started=started,
+                    metrics=active_metrics,
+                    logger=active_logger,
+                )
         try:
             response = await call_next(request)
         except Exception:  # noqa: BLE001 - never expose internals to clients
@@ -69,7 +84,14 @@ def create_app(
                 message="Internal server error",
                 request_id=request_id,
             )
-        return _secure_response(response, request_id)
+        return _observe_response(
+            request,
+            response,
+            request_id=request_id,
+            started=started,
+            metrics=active_metrics,
+            logger=active_logger,
+        )
 
     @app.exception_handler(APIError)
     async def api_error_handler(request: Request, exc: APIError) -> JSONResponse:
@@ -186,6 +208,40 @@ def _secure_response(response, request_id: str):
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["Cache-Control"] = "no-store"
     return response
+
+
+def _observe_response(
+    request: Request,
+    response,
+    *,
+    request_id: str,
+    started: float,
+    metrics: MetricsRegistry,
+    logger: logging.Logger,
+):
+    duration_ms = max(0.0, (time.perf_counter() - started) * 1000)
+    route_object = request.scope.get("route")
+    route = getattr(route_object, "path", "unmatched")
+    method = request.method.upper()
+    metrics.observe_request(
+        method=method,
+        route=route,
+        status_code=response.status_code,
+        duration_ms=duration_ms,
+    )
+    logger.info(
+        "http_request",
+        extra={
+            "event": "http_request",
+            "request_id": request_id,
+            "method": method,
+            "route": route,
+            "status_code": response.status_code,
+            "duration_ms": round(duration_ms, 3),
+            "result": "success" if response.status_code < 400 else "error",
+        },
+    )
+    return _secure_response(response, request_id)
 
 
 __all__ = ["DEFAULT_MAX_REQUEST_BYTES", "ReadinessCheck", "create_app"]
