@@ -58,8 +58,9 @@ M1 状态：**done（2026-08-01）**。冻结接口不变；269 tests passed；�
 | ART-001 | 文件/S3-compatible artifact store | done | 原子文件 adapter/port、sha256、TTL、symlink/traversal、11 tests；321 passed |
 | OBS-001 | JSON 日志、metrics、live/ready health | done | allowlist JSON 日志、route-template metrics、9 tests；330 passed |
 | E2E-001 | API → worker → evidence → report | done | 单租户 API、持久化 worker、重启、真实 Uvicorn、12 tests；342 passed |
+| M2-REL-001 | 单机部署、迁移、SQLite 备份恢复与说明 | done | Uvicorn/Alembic、非覆盖恢复、SHA-256、6 tests；348 passed |
 
-M2 退出条件：服务可单机部署；任务不因进程重启丢失；数据库恢复流程实际演练。
+M2 状态：**done（2026-08-01）**。服务可单机部署；任务不因进程重启丢失；SQLite 备份恢复已实际演练。PostgreSQL 生产恢复演练仍是 Commercial Preview 门禁，不属于本地 M2 自动化替代项。
 
 ## 5. M3 · 企业身份与安全执行器
 
@@ -133,8 +134,8 @@ GA 禁止条件：跨租户问题、secret 泄漏、执行器默认可联网、�
 
 1. M0 商用文档：done。
 2. M1 Benchmark 产品内核：done。
-3. 下一任务 `API-001`：建立 `/v1` schema、统一错误和 request ID。
-4. 随后执行 `STORE-001`、`RUN-001`、`ART-001`、`OBS-001`、`E2E-001`。
-5. M2 完成并评审后再启动 M3。
+3. M2 可部署服务：done。
+4. 下一任务 `AUTH-001`：API key/OIDC principal 与 RBAC。
+5. 随后执行 `TENANT-001`、`QUOTA-001`、`EXEC-001`、`NET-001`、`SECRET-001`。
 
 不得为了追求“商用”一次性引入 Kubernetes、Redis、消息队列和多个微服务。只有测得模块化单体无法满足容量或隔离目标时，才通过 ADR 拆分。

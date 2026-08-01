@@ -198,6 +198,42 @@ Judge safely falls back to the offline stub and reports `judge_mode: stub`.
   -q --tb=short
 ```
 
+## Commercial single-host service (M2)
+
+The M2 service is an explicit single-tenant deployment. It does not accept a
+client-supplied tenant ID. Authentication/RBAC and a strong container Runner
+are M3 requirements; do not expose M2 directly to the public Internet.
+
+Local SQLite startup:
+
+```powershell
+$env:LAB_DATABASE_URL = "sqlite:///./data/lab.db"
+$env:LAB_ARTIFACT_ROOT = "./data/artifacts"
+$env:LAB_TENANT_ID = "local"
+$env:LAB_TENANT_NAME = "Local Tenant"
+
+python -m uvicorn ai_agent_lab.api.server:create_server_app `
+  --factory --host 127.0.0.1 --port 18081
+```
+
+PostgreSQL production deployments must run Alembic before starting the API;
+the service never auto-creates a PostgreSQL schema:
+
+```powershell
+$env:LAB_DATABASE_URL = "postgresql+psycopg://<secret-reference>@db/lab"
+python -m alembic -c alembic.ini upgrade head
+```
+
+The `/v1/health/live` endpoint checks process liveness. The
+`/v1/health/ready` endpoint checks the configured database and artifact root.
+API documentation is disabled unless `LAB_EXPOSE_DOCS=1` is explicitly set.
+
+SQLite local deployments can use `ai_agent_lab.operations.backup_sqlite()` and
+`restore_sqlite_backup()`. Restore refuses to overwrite an existing database
+and requires the expected SHA-256. PostgreSQL backup and point-in-time recovery
+remain an operator/database responsibility and must be exercised before a
+Commercial Preview deployment.
+
 ## v0.5 multi-agent scenarios
 
 The v0.5 lab adds an offline MCP abuse role pipeline, five RuleEngine-backed
