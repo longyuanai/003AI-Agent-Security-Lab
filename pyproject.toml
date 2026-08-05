@@ -35,7 +35,7 @@ httpx = ">=0.27,<1.0"
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
-[project.entry-points."longyuanai.atlas_tactics"]
+[tool.poetry.plugins."longyuanai.atlas_tactics"]
 "AML.T0051" = "ai_agent_lab.atlas.aml_t0051:TACTIC"
 "AML.T0051.001" = "ai_agent_lab.atlas.aml_t0051:DIRECT_TACTIC"
 "AML.T0051.002" = "ai_agent_lab.atlas.aml_t0051:INDIRECT_TACTIC"
