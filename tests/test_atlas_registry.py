@@ -2,15 +2,14 @@
 
 from __future__ import annotations
 
-import tomllib
 from dataclasses import FrozenInstanceError
 from pathlib import Path
 
 import pytest
+import tomllib
 
 from ai_agent_lab.atlas import (
     ATLAS_TACTICS,
-    ATLASTactic,
     get_tactic,
     list_tactics,
 )
@@ -68,5 +67,5 @@ def test_pyproject_declares_all_tactics_as_entry_points() -> None:
     config = tomllib.loads(
         (project_root / "pyproject.toml").read_text(encoding="utf-8")
     )
-    entries = config["project"]["entry-points"]["longyuanai.atlas_tactics"]
+    entries = config["tool"]["poetry"]["plugins"]["longyuanai.atlas_tactics"]
     assert set(entries) == set(ATLAS_TACTICS)

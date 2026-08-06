@@ -7,9 +7,8 @@ Create Date: 2026-08-01
 
 from __future__ import annotations
 
-from alembic import op
 import sqlalchemy as sa
-
+from alembic import op
 
 revision = "0002_evaluation_runs"
 down_revision = "0001_commercial_metadata"
@@ -34,12 +33,21 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("version", sa.Integer(), nullable=False),
-        sa.CheckConstraint("attempt >= 0", name="ck_evaluation_runs_attempt_non_negative"),
         sa.CheckConstraint(
-            "fencing_token >= 0", name="ck_evaluation_runs_fencing_non_negative"
+            "attempt >= 0",
+            name=op.f("ck_evaluation_runs_attempt_non_negative"),
         ),
-        sa.CheckConstraint("seed >= 0", name="ck_evaluation_runs_seed_non_negative"),
-        sa.CheckConstraint("version >= 1", name="ck_evaluation_runs_version_positive"),
+        sa.CheckConstraint(
+            "fencing_token >= 0",
+            name=op.f("ck_evaluation_runs_fencing_non_negative"),
+        ),
+        sa.CheckConstraint(
+            "seed >= 0", name=op.f("ck_evaluation_runs_seed_non_negative")
+        ),
+        sa.CheckConstraint(
+            "version >= 1",
+            name=op.f("ck_evaluation_runs_version_positive"),
+        ),
         sa.ForeignKeyConstraint(
             ["project_id"], ["projects.id"], name="fk_evaluation_runs_project_id_projects", ondelete="CASCADE"
         ),
