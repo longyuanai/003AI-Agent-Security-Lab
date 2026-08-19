@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import uuid
-from typing import Any, Mapping
+from collections.abc import Mapping
+from typing import Any
+
+from shared_llm_core.telemetry import span
 
 from ai_agent_lab.attacks import Scenario, built_in_scenarios
 from ai_agent_lab.detector import Detector
 from ai_agent_lab.target import TargetAgent, built_in_targets
-
 
 _AGENT_ALIASES: dict[str, str] = {
     "sql_assistant": "sqli-helper",
@@ -83,6 +85,18 @@ def scan_payload(
     Tool execution is reported separately as ASR, so a blocked attack remains
     observable as a finding with ``ASR=0/N``.
     """
+    with span(
+        "product.scan",
+        attributes={"product.id": "003", "scan.target_type": "atlas_scenario"},
+    ):
+        return _scan_payload(payload, detector=detector)
+
+
+def _scan_payload(
+    payload: Mapping[str, Any],
+    *,
+    detector: Detector | None = None,
+) -> dict[str, list[dict[str, Any]]]:
 
     target = _resolve_target(payload.get("agent"))
     attack = _resolve_attack(payload.get("attack"))
