@@ -68,5 +68,6 @@ def test_pyproject_declares_all_tactics_as_entry_points() -> None:
     config = tomllib.loads(
         (project_root / "pyproject.toml").read_text(encoding="utf-8")
     )
-    entries = config["project"]["entry-points"]["longyuanai.atlas_tactics"]
+    # This package declares plugins in Poetry's table, not PEP 621 entry points.
+    entries = config["tool"]["poetry"]["plugins"]["longyuanai.atlas_tactics"]
     assert set(entries) == set(ATLAS_TACTICS)
