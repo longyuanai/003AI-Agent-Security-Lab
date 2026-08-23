@@ -28,9 +28,13 @@ def upgrade() -> None:
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("version", sa.Integer(), nullable=False),
         sa.CheckConstraint(
-            "retention_days >= 1", name="ck_tenants_retention_positive"
+            "retention_days >= 1",
+            name=op.f("ck_tenants_retention_positive"),
         ),
-        sa.CheckConstraint("version >= 1", name="ck_tenants_version_positive"),
+        sa.CheckConstraint(
+            "version >= 1",
+            name=op.f("ck_tenants_version_positive"),
+        ),
         sa.PrimaryKeyConstraint("id", name="pk_tenants"),
         sa.UniqueConstraint("name", name="uq_tenants_name"),
     )
@@ -44,7 +48,10 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("version", sa.Integer(), nullable=False),
-        sa.CheckConstraint("version >= 1", name="ck_projects_version_positive"),
+        sa.CheckConstraint(
+            "version >= 1",
+            name=op.f("ck_projects_version_positive"),
+        ),
         sa.ForeignKeyConstraint(
             ["tenant_id"], ["tenants.id"], name="fk_projects_tenant_id_tenants", ondelete="CASCADE"
         ),

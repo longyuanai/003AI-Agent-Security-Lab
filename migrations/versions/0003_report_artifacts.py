@@ -28,7 +28,10 @@ def upgrade() -> None:
         sa.Column("expires_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True),
-        sa.CheckConstraint("size_bytes >= 0", name="ck_report_artifacts_size_non_negative"),
+        sa.CheckConstraint(
+            "size_bytes >= 0",
+            name=op.f("ck_report_artifacts_size_non_negative"),
+        ),
         sa.ForeignKeyConstraint(["run_id"], ["evaluation_runs.id"], name="fk_report_artifacts_run_id_evaluation_runs", ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["tenant_id"], ["tenants.id"], name="fk_report_artifacts_tenant_id_tenants", ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id", name="pk_report_artifacts"),
