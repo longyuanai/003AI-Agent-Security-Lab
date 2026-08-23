@@ -1,4 +1,4 @@
-"""Real localhost:18080 IntegrationGateway → LabAdapter → CLI tests."""
+"""Real localhost IntegrationGateway → LabAdapter → CLI tests."""
 
 from __future__ import annotations
 
@@ -20,17 +20,10 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 SUITE_ROOT = PROJECT_ROOT.parent
 INTEGRATION_ROOT = SUITE_ROOT / "000shared-integration"
 CORE_ROOT = SUITE_ROOT / "000shared-llm-core"
-GATEWAY_URL = "http://127.0.0.1:18080"
 
 
 @pytest.fixture(scope="module")
 def gateway_url() -> Iterator[str]:
-    with socket.socket() as probe:
-        try:
-            probe.bind(("127.0.0.1", 18080))
-        except OSError as exc:
-            pytest.fail(f"gateway test port 18080 is unavailable: {exc}")
-
     env = os.environ.copy()
     pythonpath = [
         str(INTEGRATION_ROOT / "src"),
@@ -41,6 +34,15 @@ def gateway_url() -> Iterator[str]:
     env["PYTHONPATH"] = os.pathsep.join(pythonpath)
     env["LLM_PROVIDER"] = "fake"
 
+    try:
+        with socket.socket() as probe:
+            probe.bind(("127.0.0.1", 0))
+            gateway_port = probe.getsockname()[1]
+    except OSError as exc:
+        pytest.fail(f"unable to reserve an ephemeral gateway test port: {exc}")
+
+    gateway_url = f"http://127.0.0.1:{gateway_port}"
+
     process = subprocess.Popen(
         [
             sys.executable,
@@ -50,7 +52,7 @@ def gateway_url() -> Iterator[str]:
             "--host",
             "127.0.0.1",
             "--port",
-            "18080",
+            str(gateway_port),
             "--log-level",
             "warning",
         ],
@@ -60,8 +62,8 @@ def gateway_url() -> Iterator[str]:
         stderr=subprocess.DEVNULL,
     )
     try:
-        _wait_for_gateway(process)
-        yield GATEWAY_URL
+        _wait_for_gateway(process, gateway_url)
+        yield gateway_url
     finally:
         process.terminate()
         try:
@@ -106,17 +108,17 @@ def test_gateway_registry_contains_lab_finding(gateway_url: str) -> None:
     assert response["findings"][0]["source"] == "003"
 
 
-def _wait_for_gateway(process: subprocess.Popen[bytes]) -> None:
+def _wait_for_gateway(process: subprocess.Popen[bytes], gateway_url: str) -> None:
     deadline = time.monotonic() + 15
     while time.monotonic() < deadline:
         if process.poll() is not None:
             pytest.fail(f"gateway exited early with code {process.returncode}")
         try:
-            _request_json(f"{GATEWAY_URL}/v0.5/health")
+            _request_json(f"{gateway_url}/v0.5/health")
             return
         except (OSError, urllib.error.URLError):
             time.sleep(0.1)
-    pytest.fail("gateway did not become ready on port 18080 within 15 seconds")
+    pytest.fail(f"gateway did not become ready at {gateway_url} within 15 seconds")
 
 
 def _request_json(
