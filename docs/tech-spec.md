@@ -1,7 +1,16 @@
-# AI Agent 靶场 — Codex 技术方案
+# AI Agent 靶场 — 技术方案
 
-> 版本：v0.1 (draft) ｜ 适用范围：AI Agent / LLM 应用 红蓝对抗、Agent 安全研究、Prompt 注入评测、Safety 训练
+> 版本：v0.8-dev ｜ 适用范围：AI Agent / LLM 应用红蓝对抗、Agent 安全研究、Prompt 注入评测、安全回归
 > 目标：把"Agent 失陷"从 PPT 风险变成可重复、可度量、可演练的工程问题。
+> 商用化规范：见 [commercial-spec.md](commercial-spec.md)。§1–§13 保留产品演进与 Phase-2 历史；商用实施和验收以该规范为准。
+
+### 实现状态（2026-08-01）
+
+- 已实现：5 个脆弱 Agent、10 类攻击、50 组合 ASR、subprocess PoC 沙箱、多 Agent 场景、MITRE ATLAS 安全模板、可选 LLM Judge、Markdown/JSON 报告。
+- benchmark-v2 分支已实现：Attack/Delivery 分离、客观 Success Oracle、五 Agent 合法/攻击任务套件、安全与效用指标、隐私安全 evidence/Markdown 和 benchmark CLI。
+- M2 已实现：版本化 `/v1` API、SQLite/PostgreSQL metadata、Alembic、durable lease worker、artifact store、结构化观测、Uvicorn factory 和本地备份恢复。
+- 待实现：身份权限、配额、容器执行器、网络策略、secret manager、真实 adapter 与 Commercial Preview/GA 门禁。
+- 当前 subprocess sandbox 不是生产多租户安全边界；当前项目不得直接作为公网任意代码执行服务部署。
 
 ---
 
@@ -202,7 +211,7 @@ AI Agent / LLM 应用正快速进入生产，但安全工程界缺乏：
 
 ### 6.2 LLM
 
-- Attacker / Defender Agent 可基于 Claude（Opus 4.8 / Sonnet 5 / Haiku 4.5）或 OpenAI。
+- Attacker / Defender Agent 通过版本化 provider adapter 接入 OpenAI、Anthropic 或 OpenAI-compatible endpoint；具体模型由部署配置确定，不在规范中硬编码。
 - 客户自研 Agent 接入通过 OpenAI 兼容 / Anthropic 兼容协议。
 - 本地化：vLLM + Qwen2.5 / DeepSeek-V3。
 
@@ -243,10 +252,15 @@ AI Agent / LLM 应用正快速进入生产，但安全工程界缺乏：
 
 ## 10. 路线图
 
-- **v0.1 PoC（1 个月）**：3 个 Target Agent + 5 类攻击 + 沙箱 + 基础报告。
-- **v0.3 Beta（3 个月）**：完整 OWASP LLM Top-10 + 多 Agent 对抗。
-- **v0.6 GA（6 个月）**：仿真环境 + 排行榜 + CI 接入。
-- **v1.0（1 年）**：完整 Agentic Top-10 + 客户生态。
+- **已完成 PoC/Phase-2**：5 Target Agent、10 Attack、多 Agent、ATLAS、LLM Judge、报告和 200+ 自动化测试。
+- **M1 Benchmark 内核**：隐私安全 evidence、固定 seed、标准 CLI 和对照任务效用评估。
+- **M2 可部署服务**：版本化 API、持久化、任务状态机、幂等与重启恢复。
+- **M3 企业安全**：OIDC/API key、RBAC、租户隔离、容器执行器和默认断网。
+- **M4 生态试点**：至少两个真实 Agent/MCP adapter、CI 集成和认证测试套件。
+- **M5 Commercial Preview**：控制台、审计、配额、监控、备份恢复和单租户试点。
+- **M6 GA**：供应链签名、SBOM、独立渗透测试、SLO 和支持政策。
+
+每个阶段的详细入口、退出条件和发布阻断项见 [commercial-spec.md](commercial-spec.md#16-商用交付阶段)。
 
 ---
 
@@ -382,7 +396,7 @@ ATLAS_TACTICS: dict[str, ATLASTactic] = {
 src/ai_agent_lab/report/
 ├── __init__.py
 ├── markdown.py       # Markdown 渲染:跑过哪些 tactic + 哪些失败 + 严重度
-├── json_evidence.py  # JSON evidence:每条 Finding 完整 raw payload + judge 输出
+├── json_evidence.py  # JSON evidence:归一化结果、输入哈希、规则与运行版本
 └── template.md       # Markdown 模板(jinja2)
 ```
 
@@ -396,7 +410,7 @@ ai-agent-lab scan --input '{...}' --report output/2026-07-25-brute.md
 **测试要求**:
 
 - `tests/test_markdown_report.py` —— snapshot 测试,固定输入 → 固定 Markdown 输出
-- `tests/test_json_evidence.py` —— evidence JSON 包含 raw payload + judge 完整响应
+- `tests/test_json_evidence.py` —— evidence JSON 包含可复现元数据，且不包含对话历史、secret 或客户原文
 - `tests/test_cli_report.py` —— `--report` 路径正确生成,文件存在
 
 **commit 计划**(2 commit):
@@ -433,3 +447,18 @@ Codex 完工后跑:
 
 **最近修订**: 2026-07-25 · Claude 把 PHASE-2.md 合并进 §13
 **下次回看触发**: v0.6 启动 / Hook A 启动 / 真 LLM judge 接入
+
+---
+
+## 14. 商用化实施入口
+
+从 2026-08-01 起，新增商用能力统一遵循 [AI-Agent-Security-Lab 商用技术基线](commercial-spec.md)：
+
+- 架构：模块化单体控制面 + 独立沙箱执行器。
+- 安全：离线与 deny-egress 默认、客观 Oracle、最小权限、租户隔离。
+- 隐私：默认不持久化 raw prompt、tool raw output、model messages 或对话历史。
+- 交付：M1–M6 分阶段实施，每个任务独立测试、提交并推送功能分支。
+- 发布：冻结契约、跨租户访问、secret 泄漏、执行器公网访问和高危供应链漏洞均为发布阻断项。
+
+**最近修订**: 2026-08-01 · 建立商用技术基线并校正实现状态与隐私要求
+**下次回看触发**: M1 完成 / M2 API schema 冻结 / Commercial Preview 安全评审
