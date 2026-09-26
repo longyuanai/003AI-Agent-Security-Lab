@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import json
-
 from ai_agent_lab.datatypes import ToolCall, Trace, Verdict
 from ai_agent_lab.detector import LLMDetector
 

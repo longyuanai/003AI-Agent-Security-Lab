@@ -17,7 +17,11 @@
 ## ⚠️ 必须先 Read 的 4 个文件（跨项目依赖）
 1. <E:\...\XXX\docs\tech-spec.md>             — 本项目业务方案
 2. <E:\...\XXX\docs\TODO.md>                   — 本项目 issue 清单 + 上下文
-3. <E:\...\000shared-llm-core\docs\v0.1-contract.md>  — 共享接口契约 (已冻结!)
+3. <E:\...\000shared-llm-core\docs\v0.1-contract.md>  — 共享接口契约 v0.1 (已冻结!)
+3b. <E:\...\000shared-llm-core\docs\v0.5-contract.md>  — 共享接口契约 v0.5 (已冻结!)
+    ⚠️ 共享内核实际版本是 0.5.0。Finding / FindingSeverity / MultiAgentOrchestrator /
+    RuleEngine / FindingRegistry 定义在 v0.5,v0.1 里没有。只读 v0.1 会以为
+    它们不存在,从而重复造轮子。
 4. <E:\...\000shared-llm-core\src\shared_llm_core\__init__.py>  — 共享 API 真实导出
 
 (共享内核不在你工作目录下,但你必须先 Read 才能正确 import)
@@ -28,7 +32,7 @@
 3. <具体动作 3>
 
 ## 必须满足的约束
-- **接口契约见 v0.1-contract.md，**不要改 shared-llm-core 的 schema**
+- **接口契约见 v0.1-contract.md + v0.5-contract.md，**不要改 shared-llm-core 的 schema**
 - 只 import 使用 `shared_llm_core`,不复制其代码进本项目
 - 用现有 prompt 模板结构（prompts/<name>/<version>.yml）
 - 测试用 stub router / httpx.MockTransport（不能真调 LLM）
@@ -70,7 +74,7 @@
 ## 背景
 - 项目: 006 AI-Firmware-Security-Agent
 - 路径: E:\001项目\000开发\003AI+网络安全\006AI-Firmware-Security-Agent
-- 接口契约: 000shared-llm-core/docs/v0.1-contract.md（已冻结）
+- 接口契约: 000shared-llm-core/docs/v0.1-contract.md + v0.5-contract.md（均已冻结）
 - 当前状态: cve_db.py 用内置 _KNOWN_VULN mock
 
 ## 必须做的事
@@ -85,7 +89,7 @@
 5. 加 tests/test_nvd.py：用 httpx.MockTransport 返回假 NVD JSON
 
 ## 必须满足的约束
-- 接口契约见 v0.1-contract.md
+- 接口契约见 v0.1-contract.md + v0.5-contract.md
 - 测试用 httpx.MockTransport，不真打 NVD
 - 没有 NVD API key 时 fallback 到 mock_lookup，不能崩
 - Windows 兼容
@@ -181,7 +185,7 @@
 
 工作规则:
 1. 每个任务是一个独立 issue,按 ID 跟踪(例: CVE-001, PARSER-001)
-2. 开始前先 Read tech-spec.md + v0.1-contract.md,确认理解
+2. 开始前先 Read tech-spec.md + v0.1-contract.md + v0.5-contract.md,确认理解
 3. 一次只做一个 issue,完成后等下一个
 4. 不要跨项目改动,不要改接口契约
 5. 测试用 stub router / httpx.MockTransport,不能真调外部 API

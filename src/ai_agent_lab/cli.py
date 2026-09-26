@@ -8,10 +8,10 @@ run the heuristic detector so the demo always works offline.
 
 from __future__ import annotations
 
-import asyncio
 import json
+import os
 import sys
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import click
@@ -19,16 +19,23 @@ from rich.console import Console
 
 from ai_agent_lab import __version__
 from ai_agent_lab.attacks import built_in_scenarios, get_scenario
+from ai_agent_lab.auth import APIKeyManager, Role
+from ai_agent_lab.benchmark_metrics import evaluate_task_benchmark
+from ai_agent_lab.datatypes import report_now
+from ai_agent_lab.judge import StubLabJudge, build_lab_judge
 from ai_agent_lab.metrics import evaluate_asr, write_asr_reports
 from ai_agent_lab.multi_agent import run_offline_mcp_abuse_demo
 from ai_agent_lab.orchestrator import LabMission, build_llm_runtime
 from ai_agent_lab.report import (
-    build_json_evidence,
+    build_benchmark_evidence,
     build_demo_correlation_report,
+    build_json_evidence,
     default_report_path,
     render_red_team_markdown,
-    write_json_evidence,
+    write_benchmark_evidence,
+    write_benchmark_markdown,
     write_correlation_markdown,
+    write_json_evidence,
     write_red_team_markdown,
 )
 from ai_agent_lab.runner import (
@@ -38,9 +45,12 @@ from ai_agent_lab.runner import (
     run_scenario,
 )
 from ai_agent_lab.sandbox import Sandbox, SandboxError, SandboxPolicy
-from ai_agent_lab.scan import scan_payload
+from ai_agent_lab.scan import explain_empty_scan, scan_payload
 from ai_agent_lab.scenarios import evaluate_demo_scenarios
+from ai_agent_lab.storage import make_engine, session_factory
+from ai_agent_lab.storage.repositories import TenantRepository
 from ai_agent_lab.target import built_in_targets
+from ai_agent_lab.task_suites import built_in_task_suites
 
 console = Console()
 
@@ -72,10 +82,20 @@ def cli() -> None:
         "output/<ISO timestamp>-<attack_id>.md."
     ),
 )
+@click.option(
+    "--seed",
+    type=int,
+    default=None,
+    help=(
+        "Seed ATLAS payload selection so the run is reproducible. "
+        "May also be given as \"seed\" in the JSON payload."
+    ),
+)
 def scan_cmd(
     input_payload: str | None,
     json_output: bool,
     report_path: str | None,
+    seed: int | None,
 ) -> None:
     """Run one adapter-compatible Agent × Attack scan."""
 
@@ -87,6 +107,12 @@ def scan_cmd(
     if not isinstance(payload, dict):
         raise click.ClickException("input payload must be a JSON object")
 
+    if seed is None and payload.get("seed") is not None:
+        try:
+            seed = int(payload["seed"])
+        except (TypeError, ValueError) as exc:
+            raise click.ClickException("\"seed\" must be an integer") from exc
+
     attack = str(payload.get("attack", "")).strip().upper()
     if attack.startswith("AML.T"):
         try:
@@ -94,9 +120,10 @@ def scan_cmd(
                 attack,
                 agent=str(payload.get("agent", "")),
                 iterations=int(payload.get("iterations", 1)),
+                seed=seed,
             )
             atlas_envelope = atlas_run_to_envelope(atlas_run)
-            generated_at_dt = datetime.now()
+            generated_at_dt = report_now()
             generated_at = generated_at_dt.isoformat(timespec="seconds")
             markdown_path = (
                 Path(report_path)
@@ -150,11 +177,9 @@ def scan_cmd(
     mission_results = []
     errors: list[str] = []
     if _is_indirect_mission_payload(payload):
-        mission_results = asyncio.run(
-            LabMission(runtime.router).run_indirect_injection(
-                str(payload["agent"]),
-                int(payload.get("iterations", 1)),
-            )
+        mission_results = LabMission(runtime.router).run_indirect_injection(
+            str(payload["agent"]),
+            int(payload.get("iterations", 1)),
         )
         errors.extend(
             result.error for result in mission_results if result.error is not None
@@ -181,6 +206,13 @@ def scan_cmd(
     envelope["errors"] = errors
     indent = None if json_output else 2
     click.echo(json.dumps(envelope, ensure_ascii=False, indent=indent))
+
+    # An empty envelope is ambiguous -- a mistyped agent name looks exactly
+    # like a scan that found nothing. The §15 envelope shape is frozen and
+    # `--json` is the machine contract, so explain only in human mode.
+    if not json_output and not envelope["findings"]:
+        for reason in explain_empty_scan(payload):
+            click.echo(f"no findings: {reason}", err=True)
 
 
 def _is_indirect_mission_payload(payload: dict[str, object]) -> bool:
@@ -209,8 +241,86 @@ def _is_indirect_mission_payload(payload: dict[str, object]) -> bool:
     )
 
 
-def _build_router_or_none(provider: str) -> object | None:
-    """Try to build an LLM router. Never raise - we always have the heuristic."""
+def _credential_manager() -> tuple[object, APIKeyManager]:
+    database_url = os.environ.get("LAB_DATABASE_URL", "").strip()
+    pepper = os.environ.get("LAB_API_KEY_PEPPER", "")
+    if not database_url:
+        raise click.ClickException("LAB_DATABASE_URL is required")
+    try:
+        engine = make_engine(database_url)
+        return engine, APIKeyManager(session_factory(engine), pepper)
+    except ValueError as exc:
+        raise click.ClickException(str(exc)) from exc
+
+
+@cli.command("issue-api-key")
+@click.option("--tenant", "tenant_id", required=True, help="Existing tenant ID.")
+@click.option(
+    "--role",
+    "role_values",
+    multiple=True,
+    required=True,
+    type=click.Choice([role.value for role in Role], case_sensitive=False),
+    help="Role to grant; repeat for multiple roles.",
+)
+@click.option("--created-by", required=True, help="Auditable operator identifier.")
+@click.option(
+    "--ttl-days", type=click.IntRange(min=1, max=365), default=90, show_default=True
+)
+def issue_api_key_cmd(
+    tenant_id: str, role_values: tuple[str, ...], created_by: str, ttl_days: int
+) -> None:
+    """Issue a machine credential and print its plaintext exactly once."""
+
+    engine, manager = _credential_manager()
+    try:
+        sessions = session_factory(engine)
+        with sessions() as session:
+            if TenantRepository(session).get(tenant_id) is None:
+                raise click.ClickException("tenant does not exist")
+        issued = manager.issue(
+            tenant_id=tenant_id,
+            roles=[Role(value.lower()) for value in role_values],
+            created_by=created_by,
+            ttl=timedelta(days=ttl_days),
+        )
+        click.echo(
+            json.dumps(
+                {
+                    "key_id": issued.key_id,
+                    "token": issued.token,
+                    "tenant_id": issued.tenant_id,
+                    "roles": sorted(role.value for role in issued.roles),
+                    "expires_at": issued.expires_at.isoformat(),
+                    "warning": "Store this token now; it cannot be recovered.",
+                },
+                sort_keys=True,
+            )
+        )
+    finally:
+        engine.dispose()
+
+
+@cli.command("revoke-api-key")
+@click.option("--key-id", required=True, help="Public API key identifier.")
+def revoke_api_key_cmd(key_id: str) -> None:
+    """Immediately revoke an API key without accepting its plaintext token."""
+
+    engine, manager = _credential_manager()
+    try:
+        if not manager.revoke(key_id):
+            raise click.ClickException("API key was not found or already revoked")
+        click.echo(json.dumps({"key_id": key_id, "revoked": True}, sort_keys=True))
+    finally:
+        engine.dispose()
+
+
+def _build_router_or_none() -> object | None:
+    """Try to build an LLM router. Never raise - we always have the heuristic.
+
+    The provider is selected through the `LLM_PROVIDERS` environment variable,
+    which the caller sets before calling this.
+    """
     try:
         from shared_llm_core.router import LLMRouter
 
@@ -252,7 +362,7 @@ def run(scenario: str, output: str, provider: str, json_out: bool) -> None:
     import os
     os.environ.setdefault("LLM_PROVIDERS", provider)
 
-    router = _build_router_or_none(provider)
+    router = _build_router_or_none()
 
     if scenario == "demo":
         results = run_demo(router=router)
@@ -381,8 +491,147 @@ def metrics_cmd(markdown_path: str, json_path: str) -> None:
         f"[bold]Successful:[/bold] {summary.successes}  "
         f"[bold]ASR:[/bold] {summary.asr:.1%}"
     )
+    if report.quality is not None:
+        quality = report.quality
+        fpr_style = "green" if quality.false_positives == 0 else "yellow"
+        console.print(
+            f"[bold]Detection:[/bold] recall {quality.recall:.1%}  "
+            f"precision {quality.precision:.1%}  "
+            f"[{fpr_style}]FPR {quality.false_positive_rate:.1%}[/{fpr_style}] "
+            f"({quality.false_positives}/"
+            f"{quality.false_positives + quality.true_negatives} benign flagged)"
+        )
+    if report.defense is not None:
+        defense = report.defense
+        console.print(
+            f"[bold]Defense:[/bold] coverage {defense.defense_coverage:.1%}  "
+            f"task utility {defense.task_utility:.1%}"
+        )
+    if report.cost.llm_calls:
+        console.print(
+            f"[bold]Cost:[/bold] {report.cost.llm_calls} LLM calls, "
+            f"{report.cost.total_tokens} tokens"
+        )
     console.print(f"[green]Wrote[/green] {md_path}")
     console.print(f"[green]Wrote[/green] {js_path}")
+
+
+@cli.command("benchmark")
+@click.option(
+    "--offline/--live",
+    default=True,
+    show_default=True,
+    help="Use the deterministic stub judge, or explicitly allow env-gated live judge.",
+)
+@click.option(
+    "--seed",
+    type=click.IntRange(min=0),
+    default=0,
+    show_default=True,
+    help="Non-negative seed recorded in the reproducibility manifest.",
+)
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    help="Print the privacy-safe execution plan without running any task.",
+)
+@click.option(
+    "--report",
+    "report_path",
+    type=click.Path(),
+    help="Markdown output path; defaults to output/benchmark-<UTC>.md.",
+)
+@click.option(
+    "--json-evidence",
+    "evidence_path",
+    type=click.Path(),
+    help="JSON evidence path; defaults to the report path with a .json suffix.",
+)
+@click.option(
+    "--json",
+    "json_output",
+    is_flag=True,
+    help="Emit a compact machine-readable run summary to stdout.",
+)
+def benchmark_cmd(
+    offline: bool,
+    seed: int,
+    dry_run: bool,
+    report_path: str | None,
+    evidence_path: str | None,
+    json_output: bool,
+) -> None:
+    """Run paired benign/attack tasks with privacy-safe evidence."""
+
+    suites = built_in_task_suites()
+    if dry_run:
+        plan = {
+            "mode": "dry-run",
+            "offline": offline,
+            "seed": seed,
+            "agents": sorted(suites),
+            "tasks": [
+                {
+                    "task_id": task.id,
+                    "agent": task.agent,
+                    "kind": task.kind.value,
+                    "category": task.category,
+                    "strategy": task.strategy,
+                }
+                for suite in suites.values()
+                for task in (*suite.benign_tasks, *suite.attack_tasks)
+            ],
+            "writes_files": False,
+        }
+        click.echo(json.dumps(plan, ensure_ascii=False, sort_keys=True))
+        return
+
+    judge = StubLabJudge() if offline else build_lab_judge()
+    report = evaluate_task_benchmark(suites=suites, judge=judge)
+    generated_at = datetime.now(UTC)
+    generated_at_text = generated_at.isoformat()
+    markdown_path = (
+        Path(report_path)
+        if report_path
+        else Path("output")
+        / f"benchmark-{generated_at.strftime('%Y%m%dT%H%M%SZ')}.md"
+    )
+    json_path = (
+        Path(evidence_path)
+        if evidence_path
+        else markdown_path.with_suffix(".json")
+    )
+    evidence = build_benchmark_evidence(
+        report,
+        generated_at=generated_at_text,
+        seed=seed,
+        lab_version=__version__,
+        suites=suites,
+    )
+    write_benchmark_evidence(evidence, json_path)
+    write_benchmark_markdown(evidence, markdown_path)
+    result = {
+        "run_id": evidence["run_id"],
+        "benchmark_fingerprint": evidence["benchmark_fingerprint"],
+        "judge_mode": judge.mode,
+        "offline": offline,
+        "seed": seed,
+        "summary": evidence["summary"],
+        "report_path": str(markdown_path),
+        "evidence_path": str(json_path),
+    }
+    if json_output:
+        click.echo(json.dumps(result, ensure_ascii=False, sort_keys=True))
+        return
+    summary = report.summary
+    console.print(
+        f"[bold]Runs:[/bold] {summary.dimension.total}  "
+        f"[bold]ASR:[/bold] {summary.dimension.asr:.1%}  "
+        f"[bold]Utility:[/bold] {summary.dimension.utility_rate:.1%}  "
+        f"[bold]Judge:[/bold] {judge.mode}"
+    )
+    console.print(f"[green]Wrote[/green] {markdown_path}")
+    console.print(f"[green]Wrote[/green] {json_path}")
 
 
 @cli.command("multi-agent-demo")
@@ -397,6 +646,90 @@ def multi_agent_demo_cmd() -> None:
             f"latency_ms={result.latency_ms}: {detail}"
         )
     console.print(f"[green]{run.verdict}[/green]")
+
+
+@cli.command("defend")
+@click.option(
+    "--scenario",
+    "-s",
+    default="demo",
+    show_default=True,
+    help="Scenario name, or 'demo' for all built-in attacks.",
+)
+@click.option(
+    "--benign/--no-benign",
+    "include_benign",
+    default=True,
+    show_default=True,
+    help="Also run the benign corpus to measure task utility.",
+)
+def defend_cmd(scenario: str, include_benign: bool) -> None:
+    """Run the Defender Toolkit over the attack and benign corpora."""
+
+    from ai_agent_lab.attacks import benign_corpus
+    from ai_agent_lab.defender import DefenderPipeline
+    from ai_agent_lab.target import TargetAgent
+
+    pipeline = DefenderPipeline()
+    target = TargetAgent()
+    scenarios = (
+        built_in_scenarios() if scenario == "demo" else [get_scenario(scenario)]
+    )
+
+    console.print("[bold]Attacks[/bold]")
+    blocked = 0
+    for item in scenarios:
+        result = pipeline.evaluate(
+            target.run(
+                item.payload,
+                scenario_name=item.name,
+                category=item.category,
+            )
+        )
+        if result.blocked:
+            blocked += 1
+            console.print(
+                f"  [green]BLOCKED[/green] {item.name:<26} "
+                f"by {','.join(result.blocked_by)}"
+            )
+        else:
+            console.print(
+                f"  [red]ALLOWED[/red] {item.name:<26} "
+                f"tool={result.trace.tool_call.name or '-'}"
+            )
+    total = len(scenarios)
+    console.print(
+        f"[bold]Defense coverage:[/bold] {blocked}/{total} "
+        f"({blocked / total:.0%})" if total else "no scenarios"
+    )
+
+    if not include_benign:
+        return
+
+    console.print("\n[bold]Benign corpus[/bold]")
+    samples = benign_corpus()
+    false_blocks = []
+    for sample in samples:
+        result = pipeline.evaluate(target.run(sample.payload))
+        if result.blocked:
+            false_blocks.append(sample)
+            decision = result.first_block
+            # Escape the component name: Rich would read `[tool_guard]` as
+            # markup and drop it.
+            console.print(
+                f"  [yellow]BLOCKED[/yellow] {sample.name:<26} "
+                rf"\[{decision.component}] {decision.reason}"
+            )
+    completed = len(samples) - len(false_blocks)
+    console.print(
+        f"[bold]Task utility:[/bold] {completed}/{len(samples)} "
+        f"({completed / len(samples):.0%})"
+    )
+    if false_blocks:
+        console.print(
+            "[dim]A blocked benign task means the vulnerable agent routed it "
+            "into a policy violation; the block itself is correct.[/dim]"
+        )
 
 
 @cli.command("v05-scenarios")

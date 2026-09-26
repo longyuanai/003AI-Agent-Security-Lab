@@ -92,3 +92,71 @@ def test_cli_sandbox_smoke():
     assert result.exit_code == 0, result.output
     assert "cli-sandbox-ok" in result.output
     assert "Sandbox OK" in result.output
+
+
+# --------------------------------------------------------------------- #
+# Escape vectors                                                        #
+#                                                                       #
+# The guards are in-process monkeypatches, so their reach is limited by #
+# construction. The tests below split that boundary in two: vectors the #
+# guard claims to cover (and must), and vectors it cannot reach. The    #
+# second group asserts today's permissive behaviour on purpose -- if a  #
+# real kernel boundary ever lands, these fail and force the docs and    #
+# the README's "not a security boundary" wording to be revisited.       #
+# --------------------------------------------------------------------- #
+
+
+@pytest.mark.parametrize(
+    ("name", "code"),
+    [
+        # Each of these moved a file out of the sandbox before being guarded:
+        # writing inside the temp dir and then relinking the result out.
+        ("os.replace", "import os; open('a','w').write('x'); os.replace('a', {dst!r})"),
+        ("os.rename", "import os; open('a','w').write('x'); os.rename('a', {dst!r})"),
+        (
+            "shutil.move",
+            "import shutil; open('a','w').write('x'); shutil.move('a', {dst!r})",
+        ),
+    ],
+)
+def test_relinking_cannot_move_a_file_out_of_the_sandbox(
+    tmp_path: Path, name: str, code: str
+):
+    escape = tmp_path / "escaped.txt"
+    with pytest.raises(SandboxViolation):
+        _sandbox(tmp_path).run_python(code.format(dst=str(escape)))
+    assert not escape.exists(), f"{name} escaped the sandbox"
+
+
+def test_low_level_socket_module_is_blocked_too(tmp_path: Path):
+    # `socket` is a thin wrapper over the C module, so patching only the
+    # wrapper left `import _socket` as an open door.
+    with pytest.raises(SandboxViolation) as excinfo:
+        _sandbox(tmp_path).run_python("import _socket; _socket.socket()")
+    assert excinfo.value.syscall == "socket"
+
+
+def test_known_limitation_child_processes_are_unguarded(tmp_path: Path):
+    """A spawned process does not inherit the in-process guards.
+
+    Documented, not fixed: stopping this needs an OS-level boundary.
+    """
+    result = _sandbox(tmp_path, timeout_s=20).run_python(
+        "import subprocess, sys;"
+        "print(subprocess.run([sys.executable,'-c','print(42)'],"
+        "capture_output=True,text=True).stdout.strip())"
+    )
+    assert result.succeeded
+    assert "42" in result.stdout
+
+
+def test_known_limitation_ctypes_can_reach_libc(tmp_path: Path):
+    """ctypes calls C directly, underneath every Python-level guard.
+
+    Documented, not fixed: same reason as above.
+    """
+    result = _sandbox(tmp_path).run_python(
+        "import ctypes; print(ctypes.CDLL(None) is not None)"
+    )
+    assert result.succeeded
+    assert result.stdout.strip() == "True"
