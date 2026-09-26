@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
+from ai_agent_lab.datatypes import report_timestamp
 from ai_agent_lab.runner import AtlasRun
 
 
@@ -18,7 +19,7 @@ def build_json_evidence(
 ) -> dict[str, Any]:
     """Build evidence without persisting target-agent conversation history."""
 
-    when = generated_at or datetime.now().isoformat(timespec="seconds")
+    when = generated_at or report_timestamp()
     return {
         "schema_version": "phase2-v1",
         "generated_at": when,
@@ -28,6 +29,8 @@ def build_json_evidence(
             "mitre_url": run.tactic.mitre_url,
         },
         "agent": run.agent,
+        # None means the payload order is not reproducible; see `--seed`.
+        "seed": run.seed,
         "iterations": [
             {
                 "iteration": record.iteration,

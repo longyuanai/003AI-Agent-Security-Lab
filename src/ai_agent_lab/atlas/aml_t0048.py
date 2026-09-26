@@ -4,7 +4,6 @@ from shared_llm_core import FindingSeverity
 
 from ai_agent_lab.atlas import ATLASTactic
 
-
 TACTIC = ATLASTactic(
     id="AML.T0048",
     name="Erode ML Model Integrity",

@@ -4,12 +4,24 @@ The PoC uses only the Python standard library. Each execution receives:
 
 * a fresh ``sandbox_*`` temporary working directory;
 * an explicit environment-variable allowlist;
-* Python-level guards for network sockets and writes outside the temp dir;
+* Python-level guards for network sockets and writes outside the temp dir,
+  including relinking (``os.rename`` / ``replace`` / ``link`` / ``symlink``)
+  and the low-level ``_socket`` module;
 * a hard subprocess timeout followed by ``kill()``.
 
 These guards make lab failures deterministic and observable. They are not a
 replacement for Docker, gVisor, seccomp, or another kernel isolation boundary.
 On Windows the timeout intentionally degrades to killing the direct subprocess.
+
+Known limitations, deliberately not fixed because in-process monkeypatching
+cannot reach them -- both are pinned by tests in ``tests/test_sandbox.py`` so
+the boundary stays honest:
+
+* a spawned child process does not inherit the guards;
+* ``ctypes`` calls into C underneath every Python-level guard.
+
+Treat this as a determinism aid for the lab, not as containment for untrusted
+code.
 """
 
 from __future__ import annotations
@@ -21,10 +33,9 @@ import sys
 import tempfile
 import textwrap
 import time
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Mapping
-
 
 _BLOCKED_MARKER = "SANDBOX_BLOCKED:"
 _PLATFORM_ENV = ("SYSTEMROOT", "WINDIR", "COMSPEC", "TEMP", "TMP")
@@ -236,9 +247,24 @@ class Sandbox:
                         _sandbox_guard_write(path)
                     return _sandbox_real_os_open(path, flags, *args, **kwargs)
 
+                # Relinking is a write. Guarding only open() let a file be
+                # created inside the sandbox and then moved out with
+                # os.replace(), which defeats the point of the write guard.
+                def _sandbox_guard_relink(name):
+                    _real = getattr(_sandbox_os, name)
+
+                    def _guarded(src, dst, *args, **kwargs):
+                        _sandbox_guard_write(dst)
+                        return _real(src, dst, *args, **kwargs)
+
+                    return _guarded
+
                 _sandbox_builtins.open = _sandbox_open
                 _sandbox_io.open = _sandbox_open
                 _sandbox_os.open = _sandbox_os_open
+                for _name in ("rename", "replace", "link", "symlink"):
+                    if hasattr(_sandbox_os, _name):
+                        setattr(_sandbox_os, _name, _sandbox_guard_relink(_name))
                 """
             )
         if not self.policy.allow_network:
@@ -251,6 +277,14 @@ class Sandbox:
 
                 _sandbox_socket.socket = _sandbox_block_socket
                 _sandbox_socket.create_connection = _sandbox_block_socket
+                # `socket` is a thin wrapper over the C module; patching only
+                # the wrapper left `import _socket; _socket.socket()` open.
+                try:
+                    import _socket as _sandbox_c_socket
+                except ImportError:
+                    pass
+                else:
+                    _sandbox_c_socket.socket = _sandbox_block_socket
                 """
             )
 

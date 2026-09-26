@@ -1,212 +1,287 @@
 """AI-Agent-Security-Lab: vulnerable target agents + attack scenarios + detection.
 
-PoC scope (v0.1 happy path):
+Scope:
   - 5 built-in vulnerable target agent profiles
   - 10 attack classes with deterministic detector coverage
-  - Heuristic + LLM detectors
-  - Markdown reporter
+  - MITRE ATLAS tactic templates with safe synthetic payloads
+  - Heuristic + LLM detectors, offline-by-default LLM judge
+  - Markdown / JSON reporters
   - Click CLI
 
 Run demo: `python -m ai_agent_lab.cli run --scenario demo --output report.md`
+
+Top-level names are resolved lazily (PEP 562). Importing `ai_agent_lab` must
+stay cheap and dependency-free so the fully offline parts of the lab -- the
+target agents, attack corpus, heuristic detector, sandbox and ASR metrics --
+keep working when optional dependencies such as `openai` are not installed.
 """
 
-from ai_agent_lab.attacks import Scenario, built_in_scenarios
-from ai_agent_lab.attack_contracts import (
-    ATLAS_ENTRY_POINT_GROUP,
-    DELIVERY_STRATEGIES,
-    AttackCase,
-    DeliveredAttack,
-    DeliveryStrategy,
-    ExecutionPlan,
-    TacticPluginDescriptor,
-    attack_case_from_atlas,
-    build_execution_plan,
-    get_delivery_strategy,
-    list_tactic_entry_points,
-)
-from ai_agent_lab.benchmark_metrics import (
-    BenchmarkRecord,
-    BenchmarkSummary,
-    DimensionMetrics,
-    TaskBenchmarkReport,
-    evaluate_task_benchmark,
-    summarize_benchmark,
-)
-from ai_agent_lab.datatypes import (
-    Detection,
-    RunResult,
-    ToolCall,
-    Trace,
-    Verdict,
-)
-from ai_agent_lab.detector import Detector, HeuristicDetector, LLMDetector
-from ai_agent_lab.metrics import (
-    ASRReport,
-    MetricRecord,
-    RateSummary,
-    evaluate_asr,
-    render_asr_markdown,
-    write_asr_reports,
-)
-from ai_agent_lab.multi_agent import (
-    MCPAbuseRun,
-    build_mcp_abuse_mission,
-    run_mcp_abuse,
-    run_offline_mcp_abuse_demo,
-)
-from ai_agent_lab.judge import (
-    JudgeResult,
-    LabJudge,
-    RouterLabJudge,
-    StubLabJudge,
-    build_lab_judge,
-)
-from ai_agent_lab.orchestrator import (
-    AnthropicLLMRouter,
-    FakeLLMRouter,
-    LAB_MISSION_ROLES,
-    LabMission,
-    LLMRuntime,
-    OpenAILLMRouter,
-    build_llm_runtime,
-)
-from ai_agent_lab.oracle import (
-    EffectBoundary,
-    EffectExpectation,
-    OracleResult,
-    SafeLabState,
-    StateEffect,
-    SuccessOracle,
-    apply_trace_effect,
-    derive_trace_effect,
-)
-from ai_agent_lab.reporter import render_markdown
-from ai_agent_lab.report import (
-    CrossScenarioReport,
-    TargetCorrelation,
-    build_correlation_report,
-    build_demo_correlation_report,
-    render_correlation_markdown,
-)
-from ai_agent_lab.runner import (
-    AtlasIterationRecord,
-    AtlasRun,
-    Runner,
-    atlas_run_to_envelope,
-    run_atlas_tactic,
-    run_scenario,
-)
-from ai_agent_lab.sandbox import (
-    Sandbox,
-    SandboxError,
-    SandboxPolicy,
-    SandboxResult,
-    SandboxTimeout,
-    SandboxViolation,
-)
-from ai_agent_lab.scan import scan_payload
-from ai_agent_lab.scenarios import build_scenario_registry, evaluate_demo_scenarios
-from ai_agent_lab.task_suites import (
-    AgentTask,
-    AgentTaskSuite,
-    ControlRun,
-    TaskExecution,
-    TaskKind,
-    TaskSuiteRunner,
-    built_in_task_suites,
-)
-from ai_agent_lab.target import TargetAgent, built_in_targets, get_target
+from importlib import import_module
+from importlib.metadata import PackageNotFoundError, version
+from typing import TYPE_CHECKING
 
-__version__ = "0.1.0"
+# Kept in sync with pyproject's `[tool.poetry] version`; see
+# tests/test_package_metadata.py.
+_FALLBACK_VERSION = "0.1.0"
 
-__all__ = [
-    "ATLAS_ENTRY_POINT_GROUP",
-    "AgentTask",
-    "AgentTaskSuite",
-    "AttackCase",
-    "BenchmarkRecord",
-    "BenchmarkSummary",
-    "Detection",
-    "Detector",
-    "DimensionMetrics",
-    "DeliveredAttack",
-    "DeliveryStrategy",
-    "DELIVERY_STRATEGIES",
-    "EffectBoundary",
-    "EffectExpectation",
-    "ExecutionPlan",
-    "HeuristicDetector",
-    "LLMDetector",
-    "JudgeResult",
-    "LabJudge",
-    "RouterLabJudge",
-    "StubLabJudge",
-    "ASRReport",
-    "AtlasIterationRecord",
-    "AtlasRun",
-    "MetricRecord",
-    "MCPAbuseRun",
-    "LLMRuntime",
-    "LabMission",
-    "LAB_MISSION_ROLES",
-    "FakeLLMRouter",
-    "OpenAILLMRouter",
-    "OracleResult",
-    "AnthropicLLMRouter",
-    "RateSummary",
-    "CrossScenarioReport",
-    "ControlRun",
-    "TargetCorrelation",
-    "TacticPluginDescriptor",
-    "TaskExecution",
-    "TaskBenchmarkReport",
-    "TaskKind",
-    "TaskSuiteRunner",
-    "StateEffect",
-    "SuccessOracle",
-    "RunResult",
-    "Runner",
-    "Sandbox",
-    "SandboxError",
-    "SandboxPolicy",
-    "SandboxResult",
-    "SandboxTimeout",
-    "SandboxViolation",
-    "SafeLabState",
-    "Scenario",
-    "TargetAgent",
-    "ToolCall",
-    "Trace",
-    "Verdict",
-    "built_in_scenarios",
-    "built_in_task_suites",
-    "built_in_targets",
-    "attack_case_from_atlas",
-    "apply_trace_effect",
-    "build_execution_plan",
-    "build_mcp_abuse_mission",
-    "build_llm_runtime",
-    "build_lab_judge",
-    "build_correlation_report",
-    "build_demo_correlation_report",
-    "build_scenario_registry",
-    "evaluate_asr",
-    "evaluate_task_benchmark",
-    "evaluate_demo_scenarios",
-    "get_target",
-    "get_delivery_strategy",
-    "list_tactic_entry_points",
-    "derive_trace_effect",
-    "render_markdown",
-    "render_asr_markdown",
-    "render_correlation_markdown",
-    "run_scenario",
-    "run_atlas_tactic",
-    "atlas_run_to_envelope",
-    "run_mcp_abuse",
-    "run_offline_mcp_abuse_demo",
-    "scan_payload",
-    "summarize_benchmark",
-    "write_asr_reports",
-    "__version__",
-]
+try:
+    __version__ = version("ai-agent-lab")
+except PackageNotFoundError:  # running from a source checkout
+    __version__ = _FALLBACK_VERSION
+
+# Public name -> submodule that defines it.
+_EXPORTS: dict[str, str] = {
+    "ASRReport": "metrics",
+    "ATLAS_ENTRY_POINT_GROUP": "attack_contracts",
+    "AgentTask": "task_suites",
+    "AgentTaskSuite": "task_suites",
+    "AnthropicLLMRouter": "orchestrator",
+    "AtlasIterationRecord": "runner",
+    "AtlasRun": "runner",
+    "AttackCase": "attack_contracts",
+    "BenchmarkRecord": "benchmark_metrics",
+    "BenchmarkSummary": "benchmark_metrics",
+    "BenignRecord": "metrics",
+    "BenignSample": "attacks",
+    "ControlRun": "task_suites",
+    "CostSummary": "metrics",
+    "CrossScenarioReport": "report",
+    "DELIVERY_STRATEGIES": "attack_contracts",
+    "DefenderPipeline": "defender",
+    "DefenseRecord": "metrics",
+    "DefenseReport": "metrics",
+    "DefenseResult": "defender",
+    "DeliveredAttack": "attack_contracts",
+    "DeliveryStrategy": "attack_contracts",
+    "Detection": "datatypes",
+    "DetectionQuality": "metrics",
+    "Detector": "detector",
+    "DimensionMetrics": "benchmark_metrics",
+    "EffectBoundary": "oracle",
+    "EffectExpectation": "oracle",
+    "ExecutionPlan": "attack_contracts",
+    "FakeLLMRouter": "orchestrator",
+    "GuardDecision": "datatypes",
+    "HeuristicDetector": "detector",
+    "InputFilter": "defender",
+    "JudgeResult": "judge",
+    "LAB_MISSION_ROLES": "orchestrator",
+    "LLMDetector": "detector",
+    "LLMRuntime": "orchestrator",
+    "LabJudge": "judge",
+    "LabMission": "orchestrator",
+    "MCPAbuseRun": "multi_agent",
+    "MetricRecord": "metrics",
+    "OpenAILLMRouter": "orchestrator",
+    "OracleResult": "oracle",
+    "OutputAuditor": "defender",
+    "PlanValidator": "defender",
+    "RateSummary": "metrics",
+    "RouterLabJudge": "judge",
+    "RunResult": "datatypes",
+    "Runner": "runner",
+    "SafeLabState": "oracle",
+    "Sandbox": "sandbox",
+    "SandboxError": "sandbox",
+    "SandboxPolicy": "sandbox",
+    "SandboxResult": "sandbox",
+    "SandboxTimeout": "sandbox",
+    "SandboxViolation": "sandbox",
+    "Scenario": "attacks",
+    "StateEffect": "oracle",
+    "StubLabJudge": "judge",
+    "SuccessOracle": "oracle",
+    "TacticPluginDescriptor": "attack_contracts",
+    "TargetAgent": "target",
+    "TargetCorrelation": "report",
+    "TaskBenchmarkReport": "benchmark_metrics",
+    "TaskExecution": "task_suites",
+    "TaskKind": "task_suites",
+    "TaskSuiteRunner": "task_suites",
+    "ToolCall": "datatypes",
+    "ToolGuard": "defender",
+    "Trace": "datatypes",
+    "Verdict": "datatypes",
+    "apply_trace_effect": "oracle",
+    "atlas_run_to_envelope": "runner",
+    "attack_case_from_atlas": "attack_contracts",
+    "benign_corpus": "attacks",
+    "build_correlation_report": "report",
+    "build_demo_correlation_report": "report",
+    "build_execution_plan": "attack_contracts",
+    "build_lab_judge": "judge",
+    "build_llm_runtime": "orchestrator",
+    "build_mcp_abuse_mission": "multi_agent",
+    "build_scenario_registry": "scenarios",
+    "built_in_scenarios": "attacks",
+    "built_in_targets": "target",
+    "built_in_task_suites": "task_suites",
+    "derive_trace_effect": "oracle",
+    "evaluate_asr": "metrics",
+    "evaluate_defense": "metrics",
+    "evaluate_demo_scenarios": "scenarios",
+    "evaluate_detection_quality": "metrics",
+    "evaluate_task_benchmark": "benchmark_metrics",
+    "get_delivery_strategy": "attack_contracts",
+    "get_target": "target",
+    "list_tactic_entry_points": "attack_contracts",
+    "new_finding_id": "datatypes",
+    "render_asr_markdown": "metrics",
+    "render_correlation_markdown": "report",
+    "render_markdown": "reporter",
+    "run_atlas_tactic": "runner",
+    "run_mcp_abuse": "multi_agent",
+    "run_offline_mcp_abuse_demo": "multi_agent",
+    "run_scenario": "runner",
+    "scan_payload": "scan",
+    "summarise_cost": "metrics",
+    "summarize_benchmark": "benchmark_metrics",
+    "write_asr_reports": "metrics",
+}
+
+__all__ = [*sorted(_EXPORTS), "__version__"]
+
+
+def __getattr__(name: str) -> object:
+    """Import the defining submodule on first access."""
+
+    try:
+        module_name = _EXPORTS[name]
+    except KeyError:
+        raise AttributeError(
+            f"module {__name__!r} has no attribute {name!r}"
+        ) from None
+    value = getattr(import_module(f"{__name__}.{module_name}"), name)
+    globals()[name] = value  # cache so later lookups skip __getattr__
+    return value
+
+
+def __dir__() -> list[str]:
+    return sorted(__all__)
+
+
+if TYPE_CHECKING:  # let type checkers and IDEs see the real symbols
+    from ai_agent_lab.attack_contracts import (
+        ATLAS_ENTRY_POINT_GROUP,
+        DELIVERY_STRATEGIES,
+        AttackCase,
+        DeliveredAttack,
+        DeliveryStrategy,
+        ExecutionPlan,
+        TacticPluginDescriptor,
+        attack_case_from_atlas,
+        build_execution_plan,
+        get_delivery_strategy,
+        list_tactic_entry_points,
+    )
+    from ai_agent_lab.attacks import BenignSample, Scenario, benign_corpus, built_in_scenarios
+    from ai_agent_lab.benchmark_metrics import (
+        BenchmarkRecord,
+        BenchmarkSummary,
+        DimensionMetrics,
+        TaskBenchmarkReport,
+        evaluate_task_benchmark,
+        summarize_benchmark,
+    )
+    from ai_agent_lab.datatypes import (
+        Detection,
+        GuardDecision,
+        RunResult,
+        ToolCall,
+        Trace,
+        Verdict,
+        new_finding_id,
+    )
+    from ai_agent_lab.defender import (
+        DefenderPipeline,
+        DefenseResult,
+        InputFilter,
+        OutputAuditor,
+        PlanValidator,
+        ToolGuard,
+    )
+    from ai_agent_lab.detector import Detector, HeuristicDetector, LLMDetector
+    from ai_agent_lab.judge import (
+        JudgeResult,
+        LabJudge,
+        RouterLabJudge,
+        StubLabJudge,
+        build_lab_judge,
+    )
+    from ai_agent_lab.metrics import (
+        ASRReport,
+        BenignRecord,
+        CostSummary,
+        DefenseRecord,
+        DefenseReport,
+        DetectionQuality,
+        MetricRecord,
+        RateSummary,
+        evaluate_asr,
+        evaluate_defense,
+        evaluate_detection_quality,
+        render_asr_markdown,
+        summarise_cost,
+        write_asr_reports,
+    )
+    from ai_agent_lab.multi_agent import (
+        MCPAbuseRun,
+        build_mcp_abuse_mission,
+        run_mcp_abuse,
+        run_offline_mcp_abuse_demo,
+    )
+    from ai_agent_lab.oracle import (
+        EffectBoundary,
+        EffectExpectation,
+        OracleResult,
+        SafeLabState,
+        StateEffect,
+        SuccessOracle,
+        apply_trace_effect,
+        derive_trace_effect,
+    )
+    from ai_agent_lab.orchestrator import (
+        LAB_MISSION_ROLES,
+        AnthropicLLMRouter,
+        FakeLLMRouter,
+        LLMRuntime,
+        LabMission,
+        OpenAILLMRouter,
+        build_llm_runtime,
+    )
+    from ai_agent_lab.report import (
+        CrossScenarioReport,
+        TargetCorrelation,
+        build_correlation_report,
+        build_demo_correlation_report,
+        render_correlation_markdown,
+    )
+    from ai_agent_lab.reporter import render_markdown
+    from ai_agent_lab.runner import (
+        AtlasIterationRecord,
+        AtlasRun,
+        Runner,
+        atlas_run_to_envelope,
+        run_atlas_tactic,
+        run_scenario,
+    )
+    from ai_agent_lab.sandbox import (
+        Sandbox,
+        SandboxError,
+        SandboxPolicy,
+        SandboxResult,
+        SandboxTimeout,
+        SandboxViolation,
+    )
+    from ai_agent_lab.scan import scan_payload
+    from ai_agent_lab.scenarios import build_scenario_registry, evaluate_demo_scenarios
+    from ai_agent_lab.target import TargetAgent, built_in_targets, get_target
+    from ai_agent_lab.task_suites import (
+        AgentTask,
+        AgentTaskSuite,
+        ControlRun,
+        TaskExecution,
+        TaskKind,
+        TaskSuiteRunner,
+        built_in_task_suites,
+    )

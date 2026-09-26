@@ -8,3 +8,16 @@ venv/
 .env
 .pytest_cache/
 .pytest-tmp/
+.ruff_cache/
+.mypy_cache/
+
+# Generated reports. `scan --report` defaults under output/; the rest are the
+# default paths of `run`, `metrics` and `correlation-report`. Regenerate them
+# rather than committing them.
+output/
+report.md
+report.json
+asr-report.md
+asr-report.json
+v05-correlation-report.md
+single.md

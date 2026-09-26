@@ -15,7 +15,6 @@ from pathlib import Path
 
 import pytest
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 SUITE_ROOT = PROJECT_ROOT.parent
 INTEGRATION_ROOT = SUITE_ROOT / "000shared-integration"
@@ -24,6 +23,12 @@ CORE_ROOT = SUITE_ROOT / "000shared-llm-core"
 
 @pytest.fixture(scope="module")
 def gateway_url() -> Iterator[str]:
+    if not (INTEGRATION_ROOT / "src").is_dir():
+        pytest.skip(
+            "sibling checkout 000shared-integration is not present; "
+            "see README for the suite layout"
+        )
+
     env = os.environ.copy()
     pythonpath = [
         str(INTEGRATION_ROOT / "src"),

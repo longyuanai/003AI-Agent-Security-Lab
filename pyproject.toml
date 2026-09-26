@@ -30,6 +30,10 @@ pyjwt = { version = ">=2.13,<3.0", extras = ["crypto"] }
 pytest = "^8.2.0"
 pytest-mock = "^3.14.0"
 httpx = ">=0.27,<1.0"
+ruff = "^0.5.0"
+
+[tool.poetry.scripts]
+ai-agent-lab = "ai_agent_lab.cli:main"
 
 [build-system]
 requires = ["poetry-core"]
@@ -49,4 +53,29 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# `pythonpath` lets the suite run straight from a checkout, so a broken or
+# missing editable install cannot silently take every test down with it.
+pythonpath = ["src"]
 addopts = "--basetemp=.pytest-tmp"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint.per-file-ignores]
+# The TYPE_CHECKING block mirrors the lazy `_EXPORTS` table so type checkers
+# and IDEs can still see the real symbols; those imports are unused at runtime
+# by design.
+"src/ai_agent_lab/__init__.py" = ["F401"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "SIM"]
+ignore = [
+    "E501",
+    # SandboxViolation / SandboxTimeout are documented public names; renaming
+    # them to *Error would be a breaking API change for no benefit.
+    "N818",
+    # `(str, Enum)` rather than `StrEnum`, matching the shared-llm-core
+    # cross-product Finding/Verdict contract.
+    "UP042",
+]

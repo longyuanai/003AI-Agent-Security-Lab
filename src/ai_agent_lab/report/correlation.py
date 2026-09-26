@@ -2,18 +2,18 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import datetime
 from pathlib import Path
-from typing import Iterable
 
-from ai_agent_lab.scenarios import evaluate_demo_scenarios
-from ai_agent_lab.v05_compat import (
+from shared_llm_core import (
     Finding,
     FindingRegistry,
     FindingSeverity,
 )
 
+from ai_agent_lab.datatypes import report_timestamp
+from ai_agent_lab.scenarios import evaluate_demo_scenarios
 
 _SEVERITY_RANK = {
     FindingSeverity.INFO: 0,
@@ -63,12 +63,16 @@ def register_findings(
 ) -> FindingRegistry:
     active_registry = registry or FindingRegistry()
     for finding in findings:
-        active_registry.add(finding)
+        # `add` is a coroutine on the shared registry; `add_sync` is the
+        # documented entry point for non-async producers like this one.
+        active_registry.add_sync(finding)
     return active_registry
 
 
 def build_correlation_report(registry: FindingRegistry) -> CrossScenarioReport:
-    findings = tuple(registry.query(limit=registry.max_size))
+    # `findings` keeps insertion order, which the correlation graph below
+    # relies on; `query()` returns newest-first.
+    findings = registry.findings
     return CrossScenarioReport(
         findings=findings,
         correlations=tuple(_correlate_by_target(findings)),
@@ -87,7 +91,7 @@ def render_correlation_markdown(
     *,
     generated_at: str | None = None,
 ) -> str:
-    when = generated_at or datetime.now().isoformat(timespec="seconds")
+    when = generated_at or report_timestamp()
     lines = [
         "# AI Agent Security Lab · Cross-Scenario Correlation Report",
         "",

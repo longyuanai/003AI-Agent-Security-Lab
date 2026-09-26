@@ -62,7 +62,7 @@ def test_cli_run_demo_writes_report(tmp_path: Path):
     assert "indirect-web-injection" in body
     assert "token-theft-canary" in body
     assert "shell-escape-sh-c" in body
-    assert "Attacks detected: **10 / 10**" in body
+    assert "Attacks detected: **13 / 13**" in body
 
 
 def test_cli_run_unknown_scenario_fails(tmp_path: Path):

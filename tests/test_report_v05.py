@@ -3,11 +3,17 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
 from click.testing import CliRunner
+from shared_llm_core import (
+    Finding,
+    FindingRegistry,
+    FindingSeverity,
+    FindingSource,
+)
 
 from ai_agent_lab.cli import cli
 from ai_agent_lab.report import (
@@ -17,12 +23,6 @@ from ai_agent_lab.report import (
     render_correlation_markdown,
 )
 from ai_agent_lab.scenarios import evaluate_demo_scenarios
-from ai_agent_lab.v05_compat import (
-    Finding,
-    FindingRegistry,
-    FindingSeverity,
-    FindingSource,
-)
 
 
 def test_registry_queries_lab_findings_by_host():
@@ -79,7 +79,7 @@ def test_finding_rejects_invalid_confidence():
             severity=FindingSeverity.HIGH,
             confidence=1.1,
             title="invalid",
-            ts=datetime.now(timezone.utc),
+            ts=datetime.now(UTC),
         )
 
 
@@ -87,8 +87,9 @@ def test_registry_enforces_max_size():
     registry = FindingRegistry(max_size=2)
     findings = evaluate_demo_scenarios("bounded-target")
     for finding in findings:
-        registry.add(finding)
-    assert registry.query(limit=10) == findings[-2:]
+        registry.add_sync(finding)
+    # `query` returns newest-first; the bounded deque keeps only the last two.
+    assert registry.query(limit=10) == list(reversed(findings[-2:]))
 
 
 def test_cli_writes_cross_scenario_report(tmp_path: Path):

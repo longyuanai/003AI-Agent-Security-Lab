@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      # The suite expects sibling checkouts (000shared-llm-core next to
+      # 003AI-Agent-Security-Lab), so lay the workspace out the same way.
+      - name: Check out this repository
+        uses: actions/checkout@v4
+        with:
+          path: 003AI-Agent-Security-Lab
+
+      - name: Check out shared-llm-core
+        uses: actions/checkout@v4
+        with:
+          repository: longyuanai/000shared-llm-core
+          path: 000shared-llm-core
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install shared-llm-core
+        run: pip install ./000shared-llm-core
+
+      - name: Install this project
+        working-directory: 003AI-Agent-Security-Lab
+        run: pip install -e ".[openai]" pytest pytest-mock ruff
+
+      - name: Lint
+        working-directory: 003AI-Agent-Security-Lab
+        run: ruff check src tests
+
+      - name: Test
+        working-directory: 003AI-Agent-Security-Lab
+        # No network in CI: the judge stays offline unless LAB_LLM_KEY is set,
+        # and tests needing the 000shared-integration sibling skip themselves.
+        run: pytest -q
+
+      - name: Verify the offline demo still runs
+        working-directory: 003AI-Agent-Security-Lab
+        run: |
+          python -m ai_agent_lab.cli run --scenario demo --output /tmp/report.md
+          python -m ai_agent_lab.cli metrics \
+            --markdown /tmp/asr.md --json /tmp/asr.json
+          echo '{"attack":"AML.T0051","agent":"sql_assistant","iterations":3}' \
+            | python -m ai_agent_lab.cli scan --json --report /tmp/atlas.md
