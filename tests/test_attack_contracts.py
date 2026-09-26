@@ -6,6 +6,7 @@ from dataclasses import FrozenInstanceError
 
 import pytest
 
+from ai_agent_lab.atlas import get_tactic
 from ai_agent_lab.attack_contracts import (
     ATLAS_ENTRY_POINT_GROUP,
     DELIVERY_STRATEGIES,
@@ -16,7 +17,6 @@ from ai_agent_lab.attack_contracts import (
     get_delivery_strategy,
     list_tactic_entry_points,
 )
-from ai_agent_lab.atlas import get_tactic
 
 
 def test_atlas_adapter_preserves_frozen_contract_fields() -> None:

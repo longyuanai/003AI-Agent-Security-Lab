@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import hashlib
 import hmac
-import secrets
 import re
+import secrets
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from enum import StrEnum
-from typing import Any, Protocol
+from typing import Protocol
 
 import jwt
 from jwt import InvalidTokenError
@@ -18,7 +18,6 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from ai_agent_lab.domain import TenantContext
 from ai_agent_lab.storage.auth_repository import APIKeyRepository, StoredAPIKey
-
 
 MAX_BEARER_TOKEN_LENGTH = 8192
 _KEY_ID_RE = re.compile(r"^[0-9a-f]{32}$")
@@ -117,7 +116,7 @@ class APIKeyManager:
             raise ValueError("API key pepper must contain at least 32 bytes")
         self._sessions = sessions
         self._pepper = pepper.encode("utf-8")
-        self._now = now or (lambda: datetime.now(timezone.utc))
+        self._now = now or (lambda: datetime.now(UTC))
 
     def issue(
         self,
@@ -172,7 +171,7 @@ class APIKeyAuthenticator:
         APIKeyManager(sessions, pepper, now=now)
         self._sessions = sessions
         self._pepper = pepper.encode("utf-8")
-        self._now = now or (lambda: datetime.now(timezone.utc))
+        self._now = now or (lambda: datetime.now(UTC))
 
     def authenticate(self, authorization: str | None) -> Principal:
         token = _bearer_token(authorization)

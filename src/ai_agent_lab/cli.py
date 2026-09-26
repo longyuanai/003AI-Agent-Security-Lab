@@ -11,18 +11,18 @@ from __future__ import annotations
 import json
 import os
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import click
 from rich.console import Console
 
 from ai_agent_lab import __version__
-from ai_agent_lab.auth import APIKeyManager, Role
 from ai_agent_lab.attacks import built_in_scenarios, get_scenario
+from ai_agent_lab.auth import APIKeyManager, Role
 from ai_agent_lab.benchmark_metrics import evaluate_task_benchmark
-from ai_agent_lab.judge import StubLabJudge, build_lab_judge
 from ai_agent_lab.datatypes import report_now
+from ai_agent_lab.judge import StubLabJudge, build_lab_judge
 from ai_agent_lab.metrics import evaluate_asr, write_asr_reports
 from ai_agent_lab.multi_agent import run_offline_mcp_abuse_demo
 from ai_agent_lab.orchestrator import LabMission, build_llm_runtime
@@ -47,10 +47,10 @@ from ai_agent_lab.runner import (
 from ai_agent_lab.sandbox import Sandbox, SandboxError, SandboxPolicy
 from ai_agent_lab.scan import explain_empty_scan, scan_payload
 from ai_agent_lab.scenarios import evaluate_demo_scenarios
-from ai_agent_lab.target import built_in_targets
-from ai_agent_lab.task_suites import built_in_task_suites
 from ai_agent_lab.storage import make_engine, session_factory
 from ai_agent_lab.storage.repositories import TenantRepository
+from ai_agent_lab.target import built_in_targets
+from ai_agent_lab.task_suites import built_in_task_suites
 
 console = Console()
 
@@ -588,7 +588,7 @@ def benchmark_cmd(
 
     judge = StubLabJudge() if offline else build_lab_judge()
     report = evaluate_task_benchmark(suites=suites, judge=judge)
-    generated_at = datetime.now(timezone.utc)
+    generated_at = datetime.now(UTC)
     generated_at_text = generated_at.isoformat()
     markdown_path = (
         Path(report_path)

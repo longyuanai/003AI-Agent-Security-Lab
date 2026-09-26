@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import and_, or_, select, update
+from sqlalchemy import or_, select, update
 from sqlalchemy.orm import Session
 
 from ai_agent_lab.domain import (
@@ -15,7 +15,6 @@ from ai_agent_lab.domain import (
     require_transition,
 )
 from ai_agent_lab.storage.models import EvaluationRunRow, ProjectRow
-
 
 _ACTIVE = (
     RunStatus.QUEUED.value,
@@ -236,7 +235,7 @@ def _from_row(row: EvaluationRunRow) -> EvaluationRun:
 def _aware(value: datetime | None) -> datetime | None:
     if value is None or value.tzinfo:
         return value
-    return value.replace(tzinfo=timezone.utc)
+    return value.replace(tzinfo=UTC)
 
 
 __all__ = ["EvaluationRunRepository"]

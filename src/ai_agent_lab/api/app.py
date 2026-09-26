@@ -40,7 +40,6 @@ from ai_agent_lab.auth import (
 from ai_agent_lab.domain import EvaluationRun, Project
 from ai_agent_lab.observability import MetricsRegistry
 
-
 DEFAULT_MAX_REQUEST_BYTES = 1_048_576
 _REQUEST_ID_RE = re.compile(r"^[A-Za-z0-9._-]{8,128}$")
 ReadinessCheck = Callable[[], bool | Awaitable[bool]]

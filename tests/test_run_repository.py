@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -18,8 +18,7 @@ from ai_agent_lab.storage import create_schema, make_engine, session_factory
 from ai_agent_lab.storage.repositories import ProjectRepository, TenantRepository
 from ai_agent_lab.storage.run_repository import EvaluationRunRepository
 
-
-NOW = datetime(2026, 8, 1, 8, 0, tzinfo=timezone.utc)
+NOW = datetime(2026, 8, 1, 8, 0, tzinfo=UTC)
 
 
 def _setup():

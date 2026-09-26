@@ -7,14 +7,13 @@ import json
 import os
 import platform
 import tempfile
-from datetime import datetime, timezone
+from collections.abc import Mapping
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Mapping
 
 from ai_agent_lab.atlas import list_tactics
 from ai_agent_lab.benchmark_metrics import TaskBenchmarkReport
 from ai_agent_lab.task_suites import AgentTaskSuite, built_in_task_suites
-
 
 SCHEMA_VERSION = "benchmark-evidence/v1"
 
@@ -29,7 +28,7 @@ def build_benchmark_evidence(
 ) -> dict[str, object]:
     """Build normalized evidence without prompts, payloads, or conversations."""
 
-    timestamp = generated_at or datetime.now(timezone.utc).isoformat()
+    timestamp = generated_at or datetime.now(UTC).isoformat()
     active_suites = suites or built_in_task_suites()
     tasks = {
         task.id: task

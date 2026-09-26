@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -103,7 +104,7 @@ class LabApplicationService:
     ) -> bool:
         with self._sessions.begin() as session:
             return EvaluationRunRepository(session, context).cancel(
-                run_id, now=now or datetime.now(timezone.utc)
+                run_id, now=now or datetime.now(UTC)
             )
 
     def process_next(
@@ -113,7 +114,7 @@ class LabApplicationService:
         owner: str,
         now: datetime | None = None,
     ) -> EvaluationRun | None:
-        started = now or datetime.now(timezone.utc)
+        started = now or datetime.now(UTC)
         with self._sessions.begin() as session:
             repository = EvaluationRunRepository(session, context)
             claim = repository.claim_next(
@@ -129,7 +130,7 @@ class LabApplicationService:
         keys: list[str] = []
         try:
             benchmark = evaluate_task_benchmark(judge=StubLabJudge())
-            generated_at = datetime.now(timezone.utc)
+            generated_at = datetime.now(UTC)
             evidence = build_benchmark_evidence(
                 benchmark,
                 generated_at=generated_at.isoformat(),
@@ -187,7 +188,7 @@ class LabApplicationService:
                     artifact_repository.add(artifact)
                 run_repository = EvaluationRunRepository(session, context)
                 if not run_repository.transition(
-                    claim, RunStatus.COMPLETED, now=datetime.now(timezone.utc)
+                    claim, RunStatus.COMPLETED, now=datetime.now(UTC)
                 ):
                     raise RuntimeError("run lease was lost before completion")
             return self.get_run(context, claim.run.id)
@@ -198,12 +199,10 @@ class LabApplicationService:
                 repository = EvaluationRunRepository(session, context)
                 current = repository.get(claim.run.id)
                 if current and not current.status.terminal:
-                    try:
+                    with contextlib.suppress(ValueError):
                         repository.transition(
-                            claim, RunStatus.FAILED, now=datetime.now(timezone.utc)
+                            claim, RunStatus.FAILED, now=datetime.now(UTC)
                         )
-                    except ValueError:
-                        pass
             raise
 
     def read_report(

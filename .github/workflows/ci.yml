@@ -42,7 +42,7 @@ jobs:
 
       - name: Install this project
         working-directory: 003AI-Agent-Security-Lab
-        run: pip install -e ".[openai]" pytest pytest-mock ruff
+        run: pip install -e . pytest pytest-mock ruff
 
       - name: Lint
         working-directory: 003AI-Agent-Security-Lab

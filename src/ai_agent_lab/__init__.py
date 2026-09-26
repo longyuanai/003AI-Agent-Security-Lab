@@ -244,8 +244,8 @@ if TYPE_CHECKING:  # let type checkers and IDEs see the real symbols
         LAB_MISSION_ROLES,
         AnthropicLLMRouter,
         FakeLLMRouter,
-        LLMRuntime,
         LabMission,
+        LLMRuntime,
         OpenAILLMRouter,
         build_llm_runtime,
     )
