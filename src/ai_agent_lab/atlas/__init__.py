@@ -17,6 +17,8 @@ class ATLASTactic:
     payloads: tuple[str, ...]
     severity_default: FindingSeverity
     mitre_url: str
+    # ATLAS tactic (matrix column) names this technique serves.
+    tactics: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.id.startswith("AML.T"):

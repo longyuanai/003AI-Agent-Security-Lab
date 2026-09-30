@@ -71,7 +71,7 @@ def test_report_render_is_deterministic_snapshot() -> None:
     second = render_benchmark_markdown(_evidence())
     assert first == second
     assert hashlib.sha256(first.encode("utf-8")).hexdigest() == (
-        "d08ed66a5b66d338f3a00e06cd3ab499380fb56068483449c7996c26edc628a3"
+        "ae41e5ae6025e602835bbef7b8fddee79fc5845de9f7510962f59d7cd1513360"
     )
 
 

@@ -17,6 +17,7 @@ TACTIC = ATLASTactic(
     ),
     severity_default=FindingSeverity.HIGH,
     mitre_url="https://atlas.mitre.org/techniques/AML.T0051",
+    tactics=("Execution",),
 )
 
 DIRECT_TACTIC = ATLASTactic(
@@ -32,6 +33,7 @@ DIRECT_TACTIC = ATLASTactic(
     ),
     severity_default=FindingSeverity.HIGH,
     mitre_url="https://atlas.mitre.org/techniques/AML.T0051.001",
+    tactics=("Execution",),
 )
 
 INDIRECT_TACTIC = ATLASTactic(
@@ -47,6 +49,7 @@ INDIRECT_TACTIC = ATLASTactic(
     ),
     severity_default=FindingSeverity.HIGH,
     mitre_url="https://atlas.mitre.org/techniques/AML.T0051.002",
+    tactics=("Execution",),
 )
 
 TACTICS = (TACTIC, DIRECT_TACTIC, INDIRECT_TACTIC)

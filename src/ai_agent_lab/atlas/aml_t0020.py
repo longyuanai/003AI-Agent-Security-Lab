@@ -17,6 +17,7 @@ TACTIC = ATLASTactic(
     ),
     severity_default=FindingSeverity.CRITICAL,
     mitre_url="https://atlas.mitre.org/techniques/AML.T0020",
+    tactics=("Resource Development", "Persistence"),
 )
 
 TACTICS = (TACTIC,)

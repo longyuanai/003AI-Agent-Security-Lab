@@ -74,24 +74,38 @@ def list_tactics() -> list[ATLASTactic]:
     return [ATLAS_TACTICS[tactic_id] for tactic_id in sorted(ATLAS_TACTICS)]
 
 
+from ai_agent_lab.atlas.aml_t0010 import TACTICS as AML_T0010_TACTICS  # noqa: E402
 from ai_agent_lab.atlas.aml_t0020 import TACTICS as AML_T0020_TACTICS  # noqa: E402
 from ai_agent_lab.atlas.aml_t0024 import TACTICS as AML_T0024_TACTICS  # noqa: E402
+from ai_agent_lab.atlas.aml_t0025 import TACTICS as AML_T0025_TACTICS  # noqa: E402
+from ai_agent_lab.atlas.aml_t0029 import TACTICS as AML_T0029_TACTICS  # noqa: E402
 from ai_agent_lab.atlas.aml_t0031 import TACTICS as AML_T0031_TACTICS  # noqa: E402
 from ai_agent_lab.atlas.aml_t0040 import TACTICS as AML_T0040_TACTICS  # noqa: E402
 from ai_agent_lab.atlas.aml_t0048 import TACTICS as AML_T0048_TACTICS  # noqa: E402
 from ai_agent_lab.atlas.aml_t0050 import TACTICS as AML_T0050_TACTICS  # noqa: E402
 from ai_agent_lab.atlas.aml_t0051 import TACTICS as AML_T0051_TACTICS  # noqa: E402
+from ai_agent_lab.atlas.aml_t0053 import TACTICS as AML_T0053_TACTICS  # noqa: E402
 from ai_agent_lab.atlas.aml_t0054 import TACTICS as AML_T0054_TACTICS  # noqa: E402
+from ai_agent_lab.atlas.aml_t0055 import TACTICS as AML_T0055_TACTICS  # noqa: E402
+from ai_agent_lab.atlas.aml_t0056 import TACTICS as AML_T0056_TACTICS  # noqa: E402
+from ai_agent_lab.atlas.aml_t0057 import TACTICS as AML_T0057_TACTICS  # noqa: E402
 
 for _builtin_tactics in (
+    AML_T0010_TACTICS,
     AML_T0020_TACTICS,
     AML_T0024_TACTICS,
+    AML_T0025_TACTICS,
+    AML_T0029_TACTICS,
     AML_T0031_TACTICS,
     AML_T0040_TACTICS,
     AML_T0048_TACTICS,
     AML_T0050_TACTICS,
     AML_T0051_TACTICS,
+    AML_T0053_TACTICS,
     AML_T0054_TACTICS,
+    AML_T0055_TACTICS,
+    AML_T0056_TACTICS,
+    AML_T0057_TACTICS,
 ):
     register_tactics(_builtin_tactics)
 
