@@ -2,16 +2,16 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Any
 
-from ai_agent_lab.v05_compat import (
+from shared_llm_core.multi_agent import (
     AgentResult,
     AgentRole,
     MissionContext,
     MultiAgentOrchestrator,
 )
-
 
 MCP_ABUSE_ROLES: tuple[AgentRole, ...] = (
     AgentRole.SCOUT,
@@ -61,6 +61,41 @@ def run_mcp_abuse(
     )
 
 
+_DEMO_OUTPUTS: dict[str, str] = {
+    "scout": (
+        "Target fixture://mcp-poison exposes search_docs and read_secret; "
+        "scope is local fixture only."
+    ),
+    "analyst": (
+        "The tool description mixes untrusted instructions with an "
+        "over-broad read_secret capability."
+    ),
+    "exploiter": (
+        "Safe canary validation confirms the poisoned description can "
+        "request read_secret; no real secret or network was used."
+    ),
+    "reviewer": (
+        "VERDICT: critical MCP server abuse path confirmed in the fixture; "
+        "require signed tool metadata and a strict capability allowlist."
+    ),
+}
+
+# The orchestrator prefixes each prompt with a `Role: <role>` line. Anchor on
+# that instead of searching the whole prompt: once the scratchpad carries
+# earlier agents' output, every role name appears in every later prompt.
+_ROLE_LINE = re.compile(r"^\s*Role:\s*(?P<role>[a-z_]+)\s*$", re.IGNORECASE | re.MULTILINE)
+
+
+def _requested_role(req: Any) -> str:
+    """Return the role this request is for, or '' when undeterminable."""
+
+    for message in req.messages:
+        match = _ROLE_LINE.search(message.content)
+        if match:
+            return match.group("role").lower()
+    return ""
+
+
 class DeterministicMCPRouter:
     """Offline router used only by the CLI demo."""
 
@@ -76,27 +111,7 @@ class DeterministicMCPRouter:
         )
 
         self.calls.append((tier, req))
-        system = req.messages[0].content.lower()
-        if "scout" in system:
-            output = (
-                "Target fixture://mcp-poison exposes search_docs and read_secret; "
-                "scope is local fixture only."
-            )
-        elif "analyst" in system:
-            output = (
-                "The tool description mixes untrusted instructions with an "
-                "over-broad read_secret capability."
-            )
-        elif "exploiter" in system:
-            output = (
-                "Safe canary validation confirms the poisoned description can "
-                "request read_secret; no real secret or network was used."
-            )
-        else:
-            output = (
-                "VERDICT: critical MCP server abuse path confirmed in the fixture; "
-                "require signed tool metadata and a strict capability allowlist."
-            )
+        output = _DEMO_OUTPUTS.get(_requested_role(req), _DEMO_OUTPUTS["reviewer"])
         return ChatResponse(
             id=f"mcp-demo-{len(self.calls)}",
             model="deterministic-mcp-demo",

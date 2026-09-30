@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
@@ -98,7 +98,7 @@ def _from_row(row: ReportArtifactRow) -> ReportArtifact:
 def _aware(value: datetime | None) -> datetime | None:
     if value is None or value.tzinfo:
         return value
-    return value.replace(tzinfo=timezone.utc)
+    return value.replace(tzinfo=UTC)
 
 
 __all__ = ["ReportArtifactRepository"]

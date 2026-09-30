@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import hashlib
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -18,8 +18,7 @@ from ai_agent_lab.storage.artifact_store import (
 from ai_agent_lab.storage.repositories import ProjectRepository, TenantRepository
 from ai_agent_lab.storage.run_repository import EvaluationRunRepository
 
-
-NOW = datetime(2026, 8, 1, 8, 0, tzinfo=timezone.utc)
+NOW = datetime(2026, 8, 1, 8, 0, tzinfo=UTC)
 
 
 def _metadata():
@@ -136,16 +135,15 @@ def test_artifact_metadata_cannot_cross_tenant_boundary() -> None:
 
 def test_artifact_metadata_rejects_run_outside_tenant() -> None:
     engine, factory = _metadata()
-    with factory() as session:
-        with pytest.raises(ValueError, match="run was not found"):
-            ReportArtifactRepository(session, TenantContext("tenant_b")).add(
-                ReportArtifact(
-                    id="wrong", tenant_id="tenant_b", run_id="run_a", format="json",
-                    object_key="tenant_b/run_a/wrong.json", sha256="0" * 64, size_bytes=0,
-                    content_type="application/json", created_at=NOW,
-                    expires_at=NOW + timedelta(days=1),
-                )
+    with factory() as session, pytest.raises(ValueError, match="run was not found"):
+        ReportArtifactRepository(session, TenantContext("tenant_b")).add(
+            ReportArtifact(
+                id="wrong", tenant_id="tenant_b", run_id="run_a", format="json",
+                object_key="tenant_b/run_a/wrong.json", sha256="0" * 64, size_bytes=0,
+                content_type="application/json", created_at=NOW,
+                expires_at=NOW + timedelta(days=1),
             )
+        )
     engine.dispose()
 
 

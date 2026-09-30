@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -77,7 +77,7 @@ def test_tenant_repository_round_trip_preserves_utc_metadata() -> None:
         stored = TenantRepository(session).get("tenant_a")
         assert stored is not None
         assert stored.retention_days == 30
-        assert stored.created_at.tzinfo == timezone.utc
+        assert stored.created_at.tzinfo == UTC
     engine.dispose()
 
 
@@ -161,12 +161,11 @@ def test_session_scope_commits_and_rolls_back_atomically() -> None:
     engine, factory = _factory()
     with session_scope(factory) as session:
         TenantRepository(session).add(Tenant(id="committed", name="Committed"))
-    with pytest.raises(RuntimeError):
-        with session_scope(factory) as session:
-            TenantRepository(session).add(
-                Tenant(id="rolled_back", name="Rolled Back")
-            )
-            raise RuntimeError("fixture rollback")
+    with pytest.raises(RuntimeError), session_scope(factory) as session:
+        TenantRepository(session).add(
+            Tenant(id="rolled_back", name="Rolled Back")
+        )
+        raise RuntimeError("fixture rollback")
     with factory() as session:
         repository = TenantRepository(session)
         assert repository.get("committed") is not None
@@ -176,16 +175,15 @@ def test_session_scope_commits_and_rolls_back_atomically() -> None:
 
 def test_sqlite_foreign_keys_reject_orphan_project() -> None:
     engine, factory = _factory()
-    with pytest.raises(IntegrityError):
-        with factory.begin() as session:
-            ProjectRepository(session, TenantContext("missing")).add(
-                Project(
-                    id="orphan",
-                    tenant_id="missing",
-                    name="Orphan",
-                    created_by="user",
-                )
+    with pytest.raises(IntegrityError), factory.begin() as session:
+        ProjectRepository(session, TenantContext("missing")).add(
+            Project(
+                id="orphan",
+                tenant_id="missing",
+                name="Orphan",
+                created_by="user",
             )
+        )
     engine.dispose()
 
 

@@ -9,9 +9,8 @@ import logging
 import threading
 from collections import defaultdict
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import IO
-
 
 _LOG_FIELDS = (
     "event",
@@ -47,7 +46,7 @@ class SafeJSONFormatter(logging.Formatter):
 
     def format(self, record: logging.LogRecord) -> str:
         payload: dict[str, object] = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "level": record.levelname,
             "service": "ai-agent-security-lab",
             "event": getattr(record, "event", "application_event"),

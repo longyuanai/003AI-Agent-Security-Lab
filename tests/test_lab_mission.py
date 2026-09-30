@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import time
 from dataclasses import FrozenInstanceError
 
@@ -57,11 +56,9 @@ class RecordingRouter:
 
 
 def run_lab_mission(router: RecordingRouter | None = None) -> list[AgentResult]:
-    return asyncio.run(
-        LabMission(router or RecordingRouter()).run_indirect_injection(
-            "sql_assistant",
-            2,
-        )
+    return LabMission(router or RecordingRouter()).run_indirect_injection(
+        "sql_assistant",
+        2,
     )
 
 

@@ -40,7 +40,6 @@ from ai_agent_lab.auth import (
 from ai_agent_lab.domain import EvaluationRun, Project, TenantAccessError
 from ai_agent_lab.observability import AuditIdentityHasher, MetricsRegistry
 
-
 DEFAULT_MAX_REQUEST_BYTES = 1_048_576
 _REQUEST_ID_RE = re.compile(r"^[A-Za-z0-9._-]{8,128}$")
 _INSTANCE_ID_RE = re.compile(r"^[A-Za-z0-9._-]{1,64}$")

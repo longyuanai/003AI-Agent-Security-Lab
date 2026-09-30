@@ -11,9 +11,9 @@ from ai_agent_lab.attacks import Scenario, built_in_scenarios, get_scenario
 from ai_agent_lab.datatypes import Verdict
 
 
-def test_ten_scenarios_present():
+def test_thirteen_scenarios_present():
     scenarios = built_in_scenarios()
-    assert len(scenarios) == 10
+    assert len(scenarios) == 13
 
 
 def test_scenarios_have_unique_names():
@@ -45,6 +45,9 @@ def test_categories_covered():
         "browser_ssrf",
         "code_act_privilege_escalation",
         "tool_misuse",
+        "memory_poison",
+        "plan_hijack",
+        "model_dos",
     }
 
 
@@ -111,7 +114,7 @@ def test_new_attack_scenarios_resolve_by_name(name):
 
 def test_attack_classes_are_one_scenario_each():
     categories = [scenario.category for scenario in built_in_scenarios()]
-    assert len(categories) == len(set(categories)) == 10
+    assert len(categories) == len(set(categories)) == 13
 
 
 def test_all_scenarios_require_malicious_detection():

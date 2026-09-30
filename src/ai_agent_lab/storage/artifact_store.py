@@ -9,7 +9,6 @@ import tempfile
 from pathlib import Path, PurePosixPath
 from typing import Protocol
 
-
 DEFAULT_MAX_ARTIFACT_BYTES = 10 * 1024 * 1024
 _KEY_PART = re.compile(r"^[A-Za-z0-9._-]{1,128}$")
 

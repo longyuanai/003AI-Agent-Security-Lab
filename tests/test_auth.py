@@ -4,37 +4,36 @@ from __future__ import annotations
 
 import asyncio
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import httpx
 import jwt
 import pytest
+from click.testing import CliRunner
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
-from click.testing import CliRunner
 from sqlalchemy import select
 
 from ai_agent_lab.api import create_app
 from ai_agent_lab.api.server import create_server_app
-from ai_agent_lab.cli import cli
 from ai_agent_lab.application import AuthorizedLabApplicationService, LabApplicationService
 from ai_agent_lab.auth import (
     APIKeyAuthenticator,
     APIKeyManager,
     AuthenticationError,
+    AuthorizationError,
     OIDCAuthenticator,
     Permission,
     Principal,
     Role,
     StaticAuthenticator,
-    AuthorizationError,
 )
+from ai_agent_lab.cli import cli
 from ai_agent_lab.domain import Tenant
 from ai_agent_lab.storage import FileArtifactStore, create_schema, make_engine, session_factory
 from ai_agent_lab.storage.models import APIKeyRow
 from ai_agent_lab.storage.repositories import TenantRepository
-
 
 PEPPER = "fixture-pepper-material-that-is-at-least-32-bytes"
 
@@ -100,7 +99,7 @@ def _rsa_keys():
 
 
 def _oidc_token(private_key: bytes, **overrides) -> str:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     claims = {
         "sub": "oidc_user",
         "iss": "https://idp.example.test",
@@ -176,7 +175,7 @@ def test_api_key_tamper_and_wrong_pepper_are_rejected(tmp_path: Path) -> None:
 
 def test_api_key_expiry_is_fail_closed(tmp_path: Path) -> None:
     engine, sessions = _database(tmp_path)
-    now = datetime(2026, 8, 1, tzinfo=timezone.utc)
+    now = datetime(2026, 8, 1, tzinfo=UTC)
     issued = APIKeyManager(sessions, PEPPER, now=lambda: now).issue(
         tenant_id="tenant_a",
         roles=[Role.VIEWER],
@@ -232,7 +231,7 @@ def test_oidc_rs256_token_maps_verified_principal() -> None:
     [
         {"iss": "https://wrong.example.test"},
         {"aud": "wrong-audience"},
-        {"exp": datetime(2020, 1, 1, tzinfo=timezone.utc)},
+        {"exp": datetime(2020, 1, 1, tzinfo=UTC)},
         {"roles": ["unknown-role"]},
         {"tenant_id": ""},
     ],

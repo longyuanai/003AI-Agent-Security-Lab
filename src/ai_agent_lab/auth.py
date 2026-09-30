@@ -8,7 +8,7 @@ import re
 import secrets
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any, Protocol, cast
 
@@ -161,7 +161,7 @@ class APIKeyManager:
             raise ValueError("API key pepper must contain at least 32 bytes")
         self._sessions = sessions
         self._pepper = pepper.encode("utf-8")
-        self._now = now or (lambda: datetime.now(timezone.utc))
+        self._now = now or (lambda: datetime.now(UTC))
 
     def issue(
         self,
@@ -219,7 +219,7 @@ class APIKeyAuthenticator:
         APIKeyManager(sessions, pepper, now=now)
         self._sessions = sessions
         self._pepper = pepper.encode("utf-8")
-        self._now = now or (lambda: datetime.now(timezone.utc))
+        self._now = now or (lambda: datetime.now(UTC))
 
     def authenticate(self, authorization: str | None) -> Principal:
         token = _bearer_token(authorization)

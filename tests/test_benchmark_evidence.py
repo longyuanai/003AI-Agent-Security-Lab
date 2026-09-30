@@ -11,7 +11,6 @@ from ai_agent_lab.report.benchmark_evidence import (
     write_benchmark_evidence,
 )
 
-
 FIXED_TIME = "2026-08-01T08:00:00+00:00"
 
 

@@ -8,7 +8,7 @@ import shutil
 import sqlite3
 import tempfile
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 
@@ -122,7 +122,7 @@ def _manifest(path: Path) -> BackupManifest:
         path=path.resolve(),
         sha256=hashlib.sha256(data).hexdigest(),
         size_bytes=len(data),
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
     )
 
 

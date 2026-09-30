@@ -8,7 +8,6 @@ from ai_agent_lab.report.benchmark_markdown import (
     render_benchmark_markdown,
     write_benchmark_markdown,
 )
-
 from ai_agent_lab.report.correlation import (
     CrossScenarioReport,
     TargetCorrelation,

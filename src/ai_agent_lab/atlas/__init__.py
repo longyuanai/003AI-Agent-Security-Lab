@@ -35,15 +35,19 @@ class ATLASTactic:
 
 from ai_agent_lab.atlas.registry import (  # noqa: E402
     ATLAS_TACTICS,
+    ENTRY_POINT_GROUP,
     get_tactic,
     list_tactics,
+    load_plugin_tactics,
     register_tactics,
 )
 
 __all__ = [
     "ATLASTactic",
     "ATLAS_TACTICS",
+    "ENTRY_POINT_GROUP",
     "get_tactic",
     "list_tactics",
+    "load_plugin_tactics",
     "register_tactics",
 ]

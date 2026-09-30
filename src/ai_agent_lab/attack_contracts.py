@@ -10,13 +10,12 @@ from __future__ import annotations
 
 import importlib.metadata
 import random
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
-from typing import Callable, Iterable
 
 from shared_llm_core import FindingSeverity
 
 from ai_agent_lab.atlas import ATLASTactic, get_tactic
-
 
 SAFE_PAYLOAD_MARKER = "[SAFE LAB SIMULATION]"
 ATLAS_ENTRY_POINT_GROUP = "longyuanai.atlas_tactics"
@@ -250,8 +249,8 @@ def list_tactic_entry_points(
         sorted(
             (
                 TacticPluginDescriptor(
-                    name=str(getattr(entry, "name")),
-                    value=str(getattr(entry, "value")),
+                    name=str(entry.name),
+                    value=str(entry.value),
                 )
                 for entry in entries
             ),

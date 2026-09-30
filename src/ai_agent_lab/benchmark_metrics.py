@@ -3,15 +3,14 @@
 from __future__ import annotations
 
 import time
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
-from typing import Iterable, Mapping
 
 from ai_agent_lab.datatypes import Verdict
 from ai_agent_lab.detector import Detector
 from ai_agent_lab.judge import LabJudge, StubLabJudge
 from ai_agent_lab.task_suites import (
     AgentTaskSuite,
-    TaskKind,
     TaskSuiteRunner,
     built_in_task_suites,
 )

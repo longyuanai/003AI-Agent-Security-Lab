@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from ai_agent_lab.attacks import built_in_scenarios
-from ai_agent_lab.datatypes import Trace
 import pytest
 
+from ai_agent_lab.attacks import built_in_scenarios
+from ai_agent_lab.datatypes import Trace
 from ai_agent_lab.target import TargetAgent, built_in_targets, get_target
 
 

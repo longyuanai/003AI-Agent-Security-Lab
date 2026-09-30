@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session
@@ -114,7 +114,7 @@ class ProjectRepository:
             created_by=existing.created_by,
             target_policy=existing.target_policy,
             created_at=existing.created_at,
-            updated_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(UTC),
             version=existing.version,
         )
         result = self._session.execute(
@@ -168,7 +168,7 @@ def _project_from_row(row: ProjectRow) -> Project:
 
 
 def _aware(value: datetime) -> datetime:
-    return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    return value if value.tzinfo else value.replace(tzinfo=UTC)
 
 
 __all__ = ["ProjectRepository", "TenantRepository"]
