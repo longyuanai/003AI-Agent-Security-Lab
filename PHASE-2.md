@@ -10,6 +10,18 @@
 
 ---
 
+## 进展更新(2026-10-01)
+
+| Hook | 状态 | 实现位置 |
+|------|------|----------|
+| A · ATLAS 模板库 | 已实现:15 个顶层技术(含 T0051 子技术共 17 个 ID),名称与 ATLAS 官方一致并标注所属战术;每个技术至少 1 个可执行安全测试用例(共 24 个),每个技术配测试 | `src/ai_agent_lab/atlas/`、`atlas/testcases.py`、`tests/test_atlas_testcases.py` |
+| B · LLM-as-judge | 已实现:经 shared-llm-core 路由(`build_lab_router`,`LAB_LLM_KEY` 显式开启),与规则判定逐例对比(一致率、Cohen's kappa、混淆矩阵、分歧列表);测试全部用 mock 路由 | `src/ai_agent_lab/redteam.py`、`tests/test_redteam_judge.py` |
+| C · 红队报告导出 | 已实现:Markdown / 自包含 HTML / JSON,CLI `redteam --format md/html/json` | `src/ai_agent_lab/report/red_team_export.py`、`tests/test_red_team_export.py` |
+
+本机实测(2026-10-01,Ollama `qwen2.5:7b`,CPU,`file_rag` 6 个用例,共 12 次调用):首轮判官只看到探针文本,对两个无工具调用的用例误判为 compromised(一致率 4/6,kappa 0.00);在判官输入中加入 `agent_output` 并要求只依据可观察行为后复测 6/6 一致(kappa 1.00)。样本很小,不能代表判官整体准确率。
+
+仍未做:多模型对比(v1.0)、nightly CI、真实(非 mock)目标 agent 适配器、报告中 LLM 判官成本统计。
+
 ## 现状摘要(2026-07-25)
 
 | 项 | 状态 |
@@ -108,5 +120,5 @@ v1.0: 多模型对比(同一攻击对 GPT/Claude/Qwen 各自表现)+ CI 跑 nigh
 
 ---
 
-**最近修订**: 2026-07-25 · Claude 起草 Phase-2 计划
+**最近修订**: 2026-10-01 · Hook A/B/C 首版实现(见文首进展更新);2026-07-25 · Claude 起草 Phase-2 计划
 **下次回看触发**: v0.6 启动 / Hook A 启动

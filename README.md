@@ -460,6 +460,42 @@ Without `--report`, ATLAS scans use
 safe test payload and judge result; target-agent conversation history is not
 persisted.
 
+### ATLAS test-case campaign, LLM-as-judge and red-team report export
+
+The technique library covers 15 top-level MITRE ATLAS techniques (17 IDs with
+the AML.T0051 sub-techniques), named as in ATLAS, each tagged with its ATLAS
+tactic(s). `atlas/testcases.py` adds at least one executable test case per
+technique: a labelled `[SAFE LAB SIMULATION]` probe with a unique
+`LAB-CANARY-*` marker, sent to one of the mock-only lab agents. Probes only use
+reserved `.invalid` hosts and `/lab/fixtures/` paths; nothing is executed.
+
+Each case gets a deterministic rule verdict (forbidden tool called, or canary
+reached a tool argument). With `LAB_LLM_KEY` set, each case is also judged by
+an LLM through the shared-llm-core router, and the report compares the two
+(agreement, Cohen's kappa, confusion matrix, disagreements to review).
+
+```powershell
+python -m ai_agent_lab atlas-cases                     # list the catalogue
+python -m ai_agent_lab redteam --output-dir output      # rule-only, md + html
+python -m ai_agent_lab redteam --technique AML.T0056 --format json
+
+# LLM judge against a local OpenAI-compatible endpoint (e.g. Ollama)
+$env:LAB_LLM_KEY = "local-placeholder"
+$env:LAB_LLM_BASE_URL = "http://127.0.0.1:11434"
+$env:LAB_LLM_MODEL = "qwen2.5:7b"
+$env:LAB_LLM_TIMEOUT_S = "240"      # slow CPU models
+$env:LAB_LLM_MAX_RETRIES = "0"
+python -m ai_agent_lab redteam --agent file_rag --judge llm --max-llm-cases 6
+```
+
+`--judge auto` (default) uses the LLM only when `LAB_LLM_KEY` is set;
+`--max-llm-cases` caps model calls. Reports are written as
+`<timestamp>-atlas-redteam.{md,html,json}`; the HTML is a single file with no
+external resources, and all probe, tool-argument and model text is escaped.
+Rule verdicts only see tool calls, so text-only leaks are where the LLM judge
+adds signal; LLM verdicts are advisory and every disagreement should be
+reviewed.
+
 ## LLM provider switching
 
 The IntegrationGateway-compatible `scan` command reads `LLM_PROVIDER`:
