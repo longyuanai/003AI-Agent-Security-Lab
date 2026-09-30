@@ -763,6 +763,109 @@ def correlation_report_cmd(output: str) -> None:
     console.print(f"[green]Wrote[/green] {path}")
 
 
+@cli.command("atlas-cases")
+@click.option("--technique", "techniques", multiple=True, help="Filter by ATLAS ID.")
+@click.option("--agent", "agents", multiple=True, help="Filter by lab agent name.")
+def atlas_cases_cmd(techniques: tuple[str, ...], agents: tuple[str, ...]) -> None:
+    """List the safe ATLAS test-case catalogue."""
+
+    from ai_agent_lab.atlas import get_tactic
+    from ai_agent_lab.atlas.testcases import list_test_cases
+
+    for case in list_test_cases(techniques=techniques, agents=agents):
+        tactic = get_tactic(case.technique_id)
+        click.echo(f"{case.id:<14} {tactic.id:<14} {case.agent:<16} {tactic.name}")
+
+
+@cli.command("redteam")
+@click.option("--technique", "techniques", multiple=True,
+              help="ATLAS technique ID to include (repeatable; default: all).")
+@click.option("--agent", "agents", multiple=True,
+              help="Lab agent to include (repeatable; default: all).")
+@click.option(
+    "--judge",
+    type=click.Choice(["auto", "rule", "llm"]),
+    default="auto",
+    show_default=True,
+    help="rule: deterministic only; llm: also ask the LLM judge (needs "
+    "LAB_LLM_KEY); auto: llm when LAB_LLM_KEY is set.",
+)
+@click.option("--max-llm-cases", type=click.IntRange(min=0), default=None,
+              help="Only send the first N cases to the LLM judge (cost control).")
+@click.option("--format", "formats", multiple=True,
+              type=click.Choice(["md", "html", "json"]),
+              help="Report formats (repeatable; default: md and html).")
+@click.option("--output-dir", default="output", show_default=True,
+              type=click.Path(file_okay=False), help="Directory for report files.")
+@click.option("--json", "json_output", is_flag=True,
+              help="Print a machine-readable summary instead of text.")
+def redteam_cmd(
+    techniques: tuple[str, ...],
+    agents: tuple[str, ...],
+    judge: str,
+    max_llm_cases: int | None,
+    formats: tuple[str, ...],
+    output_dir: str,
+    json_output: bool,
+) -> None:
+    """Run the ATLAS test-case campaign and export a red-team report."""
+
+    from ai_agent_lab.judge import build_lab_router, lab_llm_model
+    from ai_agent_lab.redteam import LLMCaseJudge, run_red_team
+    from ai_agent_lab.report.red_team_export import export_red_team_report
+
+    router = None
+    if judge in ("auto", "llm"):
+        try:
+            router = build_lab_router()
+        except ValueError as exc:
+            raise click.ClickException(str(exc)) from exc
+        if router is None and judge == "llm":
+            raise click.ClickException("--judge llm requires LAB_LLM_KEY to be set")
+    llm_judge = LLMCaseJudge(router, model=lab_llm_model()) if router else None
+    try:
+        campaign = run_red_team(
+            techniques=techniques,
+            agents=agents,
+            llm_judge=llm_judge,
+            max_llm_cases=max_llm_cases,
+        )
+    except (KeyError, ValueError) as exc:
+        raise click.ClickException(str(exc)) from exc
+    paths = export_red_team_report(campaign, output_dir, formats or ("md", "html"))
+    data = campaign.to_dict()
+    if json_output:
+        click.echo(
+            json.dumps(
+                {
+                    "summary": data["summary"],
+                    "judge_mode": data["judge_mode"],
+                    "judge_comparison": data["judge_comparison"],
+                    "reports": [str(path) for path in paths],
+                },
+                ensure_ascii=False,
+            )
+        )
+        return
+    summary = data["summary"]
+    console.print(
+        f"[bold]Cases:[/bold] {summary['cases']}  "
+        f"[bold]Compromised:[/bold] {summary['compromised']}  "
+        f"[bold]Judge:[/bold] {data['judge_mode']}"
+    )
+    comparison = data["judge_comparison"]
+    if comparison:
+        rate = comparison["agreement_rate"]
+        console.print(
+            f"[bold]Rule/LLM agreement:[/bold] {comparison['agreements']}/"
+            f"{comparison['compared']}"
+            + (f" ({rate:.0%})" if rate is not None else "")
+            + f"  kappa={comparison['cohen_kappa']}"
+        )
+    for path in paths:
+        console.print(f"[green]Wrote[/green] {path}")
+
+
 def main() -> None:
     # shared-integration v0.5's JSONSubprocessAdapter currently invokes the
     # module with root-level ``--input ... --json`` arguments. Keep that
