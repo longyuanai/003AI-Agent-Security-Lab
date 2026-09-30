@@ -127,7 +127,7 @@ class RouterLabJudge:
         # `confidence: 1.5` is behaving normally, not exceptionally. Treat a
         # malformed answer as an inconclusive judgement rather than raising --
         # a transport error still propagates so the runner can record it.
-        parsed = _parse_judge_payload(raw_text)
+        parsed = parse_judge_payload(raw_text)
         if parsed is None:
             return JudgeResult(
                 verdict=Verdict.SUSPICIOUS,
@@ -148,7 +148,7 @@ class RouterLabJudge:
             verdict = Verdict.SUSPICIOUS
         return JudgeResult(
             verdict=verdict,
-            confidence=_coerce_confidence(parsed.get("confidence")),
+            confidence=coerce_confidence(parsed.get("confidence")),
             reason=str(parsed.get("reason", "")),
             mode=self.mode,
             raw={
@@ -168,13 +168,37 @@ def build_lab_judge(
     """Return live judge only when ``LAB_LLM_KEY`` is explicitly non-empty."""
 
     env = os.environ if environ is None else environ
-    api_key = env.get("LAB_LLM_KEY", "").strip()
-    if not api_key:
+    if not env.get("LAB_LLM_KEY", "").strip():
         return StubLabJudge()
     if router is not None:
         return RouterLabJudge(router)
+    llm_router = build_lab_router(env)
+    assert llm_router is not None  # guarded by the LAB_LLM_KEY check above
+    return RouterLabJudge(llm_router)
 
-    model = env.get("LAB_LLM_MODEL", "gpt-4o-mini").strip() or "gpt-4o-mini"
+
+def lab_llm_model(environ: Mapping[str, str] | None = None) -> str:
+    """Model name the lab judge will request (``LAB_LLM_MODEL``)."""
+
+    env = os.environ if environ is None else environ
+    return env.get("LAB_LLM_MODEL", "gpt-4o-mini").strip() or "gpt-4o-mini"
+
+
+def build_lab_router(environ: Mapping[str, str] | None = None) -> LLMRouter | None:
+    """Build the shared-llm-core router for judging, or None when disabled.
+
+    Opt-in only: without a non-empty ``LAB_LLM_KEY`` no network client is
+    created. ``LAB_LLM_BASE_URL`` may point at any OpenAI-compatible
+    endpoint (for a local Ollama: ``http://127.0.0.1:11434`` with any
+    placeholder key). ``LAB_LLM_TIMEOUT_S`` and ``LAB_LLM_MAX_RETRIES``
+    tune slow local models.
+    """
+
+    env = os.environ if environ is None else environ
+    api_key = env.get("LAB_LLM_KEY", "").strip()
+    if not api_key:
+        return None
+    model = lab_llm_model(env)
     base_url = (
         env.get("LAB_LLM_BASE_URL", "https://api.openai.com").strip()
         or "https://api.openai.com"
@@ -184,6 +208,8 @@ def build_lab_judge(
         base_url=base_url,
         api_key=api_key,
         default_model=model,
+        timeout_s=_env_float(env, "LAB_LLM_TIMEOUT_S", 60.0, minimum=1.0),
+        max_retries=int(_env_float(env, "LAB_LLM_MAX_RETRIES", 3, minimum=0)),
     )
     config = CoreConfig(
         providers={"lab-judge": provider},
@@ -193,7 +219,7 @@ def build_lab_judge(
             include_response=False,
         ),
     )
-    llm_router = LLMRouter(
+    return LLMRouter(
         config,
         rules=[
             RouteRule(
@@ -204,7 +230,21 @@ def build_lab_judge(
         ],
         audit=None,
     )
-    return RouterLabJudge(llm_router)
+
+
+def _env_float(
+    env: Mapping[str, str], name: str, default: float, *, minimum: float
+) -> float:
+    raw = env.get(name, "").strip()
+    if not raw:
+        return default
+    try:
+        value = float(raw)
+    except ValueError as exc:
+        raise ValueError(f"{name} must be a number") from exc
+    if value != value or value < minimum:
+        raise ValueError(f"{name} must be >= {minimum}")
+    return value
 
 
 def _strip_json_fence(text: str) -> str:
@@ -217,7 +257,7 @@ def _strip_json_fence(text: str) -> str:
     return stripped.strip()
 
 
-def _parse_judge_payload(raw_text: str) -> dict[str, Any] | None:
+def parse_judge_payload(raw_text: str) -> dict[str, Any] | None:
     """Best-effort extraction of the JSON object from a judge reply.
 
     Handles the three ways a model routinely misses "JSON only": a Markdown
@@ -269,7 +309,7 @@ def _parse_judge_payload(raw_text: str) -> dict[str, Any] | None:
     return None
 
 
-def _coerce_confidence(value: Any, default: float = 0.5) -> float:
+def coerce_confidence(value: Any, default: float = 0.5) -> float:
     """Clamp a model-reported confidence into [0, 1].
 
     `JudgeResult` rejects out-of-range values, so an over-confident `1.5` used
