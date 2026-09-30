@@ -37,12 +37,21 @@ from ai_agent_lab.auth import (
     Principal,
     require_permission,
 )
-from ai_agent_lab.domain import EvaluationRun, Project
-from ai_agent_lab.observability import MetricsRegistry
+from ai_agent_lab.domain import EvaluationRun, Project, TenantAccessError
+from ai_agent_lab.observability import AuditIdentityHasher, MetricsRegistry
 
 
 DEFAULT_MAX_REQUEST_BYTES = 1_048_576
 _REQUEST_ID_RE = re.compile(r"^[A-Za-z0-9._-]{8,128}$")
+_INSTANCE_ID_RE = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
+_RESOURCE_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
+_STATUS_DECISIONS = {
+    400: "invalid_request",
+    404: "not_found",
+    409: "conflict",
+    413: "rejected",
+    422: "invalid_request",
+}
 ReadinessCheck = Callable[[], bool | Awaitable[bool]]
 
 
@@ -55,11 +64,15 @@ def create_app(
     logger: logging.Logger | None = None,
     service: LabApplicationService | None = None,
     authenticator: Authenticator | None = None,
+    audit_hasher: AuditIdentityHasher | None = None,
+    instance_id: str | None = None,
 ) -> FastAPI:
     """Create an API app; no benchmark or target execution occurs here."""
 
     if max_request_bytes < 1:
         raise ValueError("max_request_bytes must be positive")
+    if instance_id is not None and not _INSTANCE_ID_RE.fullmatch(instance_id):
+        raise ValueError("instance_id must be 1-64 safe characters")
     if (service is None) != (authenticator is None):
         raise ValueError("commercial routes require both service and authenticator")
     check = readiness_check or (lambda: True)
@@ -76,8 +89,13 @@ def create_app(
     @app.middleware("http")
     async def commercial_boundary(request: Request, call_next):
         started = time.perf_counter()
-        request_id = _request_id(request.headers.get("x-request-id"))
+        # The primary ID is always server-issued; a client value is only echoed
+        # separately so it can never forge or collide with audit correlation.
+        request_id = _request_id(None)
         request.state.request_id = request_id
+        request.state.client_request_id = _client_request_id(
+            request.headers.get("x-request-id")
+        )
         content_length = request.headers.get("content-length")
         if content_length is not None:
             try:
@@ -98,6 +116,8 @@ def create_app(
                     started=started,
                     metrics=active_metrics,
                     logger=active_logger,
+                    audit_hasher=audit_hasher,
+                    instance_id=instance_id,
                 )
         try:
             response = await call_next(request)
@@ -115,6 +135,8 @@ def create_app(
             started=started,
             metrics=active_metrics,
             logger=active_logger,
+            audit_hasher=audit_hasher,
+            instance_id=instance_id,
         )
 
     @app.exception_handler(APIError)
@@ -165,6 +187,19 @@ def create_app(
             request_id=_state_request_id(request),
         )
 
+    @app.exception_handler(TenantAccessError)
+    async def tenant_access_handler(
+        request: Request, exc: TenantAccessError
+    ) -> JSONResponse:
+        del exc
+        request.state.audit_decision = "tenant_denied"
+        return _error_response(
+            status_code=403,
+            code="tenant_access_denied",
+            message="Tenant access is denied",
+            request_id=_state_request_id(request),
+        )
+
     @app.get(
         "/v1/health/live",
         response_model=HealthResponse,
@@ -199,19 +234,28 @@ def create_app(
 
         def authenticated_principal(request: Request) -> Principal:
             try:
-                return authenticator.authenticate(request.headers.get("authorization"))
+                principal = authenticator.authenticate(
+                    request.headers.get("authorization")
+                )
             except AuthenticationError as exc:
+                # No identity is derived from an unverified credential.
+                request.state.audit_decision = "authn_failed"
                 raise APIError(
                     401, "authentication_required", "Valid credentials are required"
                 ) from exc
+            request.state.principal = principal
+            return principal
 
         def authorized(permission: Permission):
             def dependency(
+                request: Request,
                 principal: Principal = Depends(authenticated_principal),
             ) -> Principal:
+                request.state.permission = permission.value
                 try:
                     require_permission(principal, permission)
                 except AuthorizationError as exc:
+                    request.state.audit_decision = "permission_denied"
                     raise APIError(
                         403, "permission_denied", "Permission is required"
                     ) from exc
@@ -226,6 +270,7 @@ def create_app(
             tags=["projects"],
         )
         def create_project(
+            request: Request,
             payload: ProjectCreate,
             principal: Principal = Depends(authorized(Permission.PROJECT_CREATE)),
         ) -> ProjectResponse:
@@ -237,6 +282,7 @@ def create_app(
                 )
             except ValueError as exc:
                 raise APIError(400, "invalid_project", str(exc)) from exc
+            request.state.audit_project_id = project.id
             return _project_response(project)
 
         @app.get(
@@ -259,9 +305,11 @@ def create_app(
             tags=["runs"],
         )
         def create_run(
+            request: Request,
             payload: RunCreate,
             principal: Principal = Depends(authorized(Permission.RUN_CREATE)),
         ) -> RunResponse:
+            request.state.audit_project_id = payload.project_id
             try:
                 run, _created = authorized_service.create_run(
                     principal,
@@ -272,6 +320,7 @@ def create_app(
                 )
             except ValueError as exc:
                 raise APIError(404, "project_not_found", "Project was not found") from exc
+            request.state.audit_run_id = run.id
             return _run_response(run)
 
         @app.get(
@@ -324,6 +373,12 @@ def _request_id(candidate: str | None) -> str:
     return f"req_{uuid.uuid4().hex}"
 
 
+def _client_request_id(candidate: str | None) -> str | None:
+    if candidate and _REQUEST_ID_RE.fullmatch(candidate):
+        return candidate
+    return None
+
+
 def _state_request_id(request: Request) -> str:
     return getattr(request.state, "request_id", _request_id(None))
 
@@ -348,8 +403,10 @@ def _error_response(
     )
 
 
-def _secure_response(response, request_id: str):
+def _secure_response(response, request_id: str, client_request_id: str | None):
     response.headers["X-Request-Id"] = request_id
+    if client_request_id is not None:
+        response.headers["X-Client-Request-Id"] = client_request_id
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["Cache-Control"] = "no-store"
     if response.status_code == 401:
@@ -386,6 +443,8 @@ def _observe_response(
     started: float,
     metrics: MetricsRegistry,
     logger: logging.Logger,
+    audit_hasher: AuditIdentityHasher | None = None,
+    instance_id: str | None = None,
 ):
     duration_ms = max(0.0, (time.perf_counter() - started) * 1000)
     route_object = request.scope.get("route")
@@ -397,19 +456,62 @@ def _observe_response(
         status_code=response.status_code,
         duration_ms=duration_ms,
     )
-    logger.info(
-        "http_request",
-        extra={
-            "event": "http_request",
-            "request_id": request_id,
-            "method": method,
-            "route": route,
-            "status_code": response.status_code,
-            "duration_ms": round(duration_ms, 3),
-            "result": "success" if response.status_code < 400 else "error",
-        },
+    client_request_id = getattr(request.state, "client_request_id", None)
+    extra: dict[str, object] = {
+        "event": "http_request",
+        "request_id": request_id,
+        "method": method,
+        "route": route,
+        "status_code": response.status_code,
+        "duration_ms": round(duration_ms, 3),
+        "result": "success" if response.status_code < 400 else "error",
+    }
+    extra.update(
+        _audit_fields(request, response.status_code, audit_hasher, instance_id)
     )
-    return _secure_response(response, request_id)
+    if client_request_id is not None:
+        extra["client_request_id"] = client_request_id
+    logger.info("http_request", extra=extra)
+    return _secure_response(response, request_id, client_request_id)
+
+
+def _audit_fields(
+    request: Request,
+    status_code: int,
+    audit_hasher: AuditIdentityHasher | None,
+    instance_id: str | None,
+) -> dict[str, object]:
+    """Identity attribution from the verified principal only; never raw values."""
+
+    fields: dict[str, object] = {}
+    if instance_id is not None:
+        fields["instance_id"] = instance_id
+    state = request.state
+    principal: Principal | None = getattr(state, "principal", None)
+    decision: str | None = getattr(state, "audit_decision", None)
+    if principal is not None:
+        fields["auth_method"] = principal.auth_method
+        if audit_hasher is not None:
+            fields["subject_hash"] = audit_hasher.subject(principal.subject)
+            fields["tenant_id_hash"] = audit_hasher.tenant(principal.tenant_id)
+        if decision is None:
+            decision = (
+                "allowed"
+                if status_code < 400
+                else _STATUS_DECISIONS.get(status_code, "error")
+            )
+    if decision is not None:
+        fields["decision"] = decision
+    permission = getattr(state, "permission", None)
+    if permission is not None:
+        fields["permission"] = permission
+    run_id = getattr(state, "audit_run_id", None) or request.path_params.get("run_id")
+    if isinstance(run_id, str) and _RESOURCE_ID_RE.fullmatch(run_id):
+        fields["run_id"] = run_id
+    project_id = getattr(state, "audit_project_id", None)
+    if isinstance(project_id, str) and _RESOURCE_ID_RE.fullmatch(project_id):
+        fields["project_id"] = project_id
+    return fields
 
 
 __all__ = ["DEFAULT_MAX_REQUEST_BYTES", "ReadinessCheck", "create_app"]

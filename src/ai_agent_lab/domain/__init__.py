@@ -1,6 +1,11 @@
 """Framework-independent commercial domain models."""
 
-from ai_agent_lab.domain.entities import Project, Tenant, TenantContext
+from ai_agent_lab.domain.entities import (
+    Project,
+    Tenant,
+    TenantAccessError,
+    TenantContext,
+)
 from ai_agent_lab.domain.artifacts import ReportArtifact
 from ai_agent_lab.domain.runs import (
     EvaluationRun,
@@ -16,6 +21,7 @@ __all__ = [
     "ReportArtifact",
     "RunStatus",
     "Tenant",
+    "TenantAccessError",
     "TenantContext",
     "require_transition",
 ]

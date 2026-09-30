@@ -6,6 +6,7 @@ import os
 from collections.abc import Mapping
 from pathlib import Path
 
+from fastapi import FastAPI
 from sqlalchemy import text
 
 from ai_agent_lab.api import create_app
@@ -13,6 +14,7 @@ from ai_agent_lab.application import LabApplicationService
 from ai_agent_lab.auth import (
     APIKeyAuthenticator,
     APIKeyManager,
+    Authenticator,
     CompositeAuthenticator,
     OIDCAuthenticator,
     Principal,
@@ -20,12 +22,17 @@ from ai_agent_lab.auth import (
     StaticAuthenticator,
 )
 from ai_agent_lab.domain import Tenant
-from ai_agent_lab.observability import configure_json_logging
-from ai_agent_lab.storage import FileArtifactStore, create_schema, make_engine, session_factory
+from ai_agent_lab.observability import AuditIdentityHasher, configure_json_logging
+from ai_agent_lab.storage import (
+    FileArtifactStore,
+    create_schema,
+    make_engine,
+    session_factory,
+)
 from ai_agent_lab.storage.repositories import TenantRepository
 
 
-def create_server_app(environ: Mapping[str, str] | None = None):
+def create_server_app(environ: Mapping[str, str] | None = None) -> FastAPI:
     """Build the service. Production PostgreSQL schema is never auto-created."""
 
     env = os.environ if environ is None else environ
@@ -48,6 +55,35 @@ def create_server_app(environ: Mapping[str, str] | None = None):
         and env.get("LAB_ALLOW_INSECURE_LOCAL_AUTH", "0").strip() != "1"
     ):
         raise ValueError("local auth requires LAB_ALLOW_INSECURE_LOCAL_AUTH=1")
+    audit_key = env.get("LAB_AUDIT_HASH_KEY", "")
+    if auth_mode in {"api_key", "oidc", "api_key+oidc"} and not audit_key:
+        # Fail closed: authenticated deployments must attribute audit events.
+        raise ValueError("authenticated modes require LAB_AUDIT_HASH_KEY")
+    audit_hasher = AuditIdentityHasher(audit_key) if audit_key else None
+    instance_id = env.get("LAB_INSTANCE_ID", "").strip() or f"pid-{os.getpid()}"
+    # Validate used OIDC configuration before any database or artifact mutation.
+    oidc_authenticator = None
+    if auth_mode in {"oidc", "api_key+oidc"}:
+        key_path = env.get("LAB_OIDC_PUBLIC_KEY_FILE", "").strip()
+        if not key_path:
+            raise ValueError("OIDC auth requires LAB_OIDC_PUBLIC_KEY_FILE")
+        try:
+            verification_key = Path(key_path).read_bytes()
+        except OSError:
+            raise ValueError("OIDC public key file could not be read") from None
+        algorithms = tuple(
+            part.strip()
+            for part in env.get("LAB_OIDC_ALGORITHMS", "RS256").split(",")
+            if part.strip()
+        )
+        oidc_authenticator = OIDCAuthenticator(
+            issuer=env.get("LAB_OIDC_ISSUER", "").strip(),
+            audience=env.get("LAB_OIDC_AUDIENCE", "").strip(),
+            verification_key=verification_key,
+            algorithms=algorithms,
+            tenant_claim=env.get("LAB_OIDC_TENANT_CLAIM", "tenant_id").strip(),
+            roles_claim=env.get("LAB_OIDC_ROLES_CLAIM", "roles").strip(),
+        )
     engine = make_engine(database_url)
     sessions = session_factory(engine)
     if engine.dialect.name == "sqlite":
@@ -57,10 +93,14 @@ def create_server_app(environ: Mapping[str, str] | None = None):
             if repository.get(tenant_id) is None:
                 repository.add(Tenant(id=tenant_id, name=tenant_name))
     artifacts = FileArtifactStore(artifact_root)
+    logger = configure_json_logging()
     service = LabApplicationService(
-        sessions, artifacts, artifact_retention_days=retention_days
+        sessions,
+        artifacts,
+        artifact_retention_days=retention_days,
+        audit_hasher=audit_hasher,
     )
-    authenticator = None
+    authenticator: Authenticator | None = None
     api_key_manager = None
     if auth_mode == "local":
         authenticator = StaticAuthenticator(
@@ -73,29 +113,10 @@ def create_server_app(environ: Mapping[str, str] | None = None):
         )
     elif auth_mode in {"api_key", "oidc", "api_key+oidc"}:
         api_authenticator = None
-        oidc_authenticator = None
         if "api_key" in auth_mode:
             pepper = env.get("LAB_API_KEY_PEPPER", "")
             api_key_manager = APIKeyManager(sessions, pepper)
             api_authenticator = APIKeyAuthenticator(sessions, pepper)
-        if "oidc" in auth_mode:
-            key_path = env.get("LAB_OIDC_PUBLIC_KEY_FILE", "").strip()
-            if not key_path:
-                raise ValueError("OIDC auth requires LAB_OIDC_PUBLIC_KEY_FILE")
-            verification_key = Path(key_path).read_bytes()
-            algorithms = tuple(
-                part.strip()
-                for part in env.get("LAB_OIDC_ALGORITHMS", "RS256").split(",")
-                if part.strip()
-            )
-            oidc_authenticator = OIDCAuthenticator(
-                issuer=env.get("LAB_OIDC_ISSUER", "").strip(),
-                audience=env.get("LAB_OIDC_AUDIENCE", "").strip(),
-                verification_key=verification_key,
-                algorithms=algorithms,
-                tenant_claim=env.get("LAB_OIDC_TENANT_CLAIM", "tenant_id").strip(),
-                roles_claim=env.get("LAB_OIDC_ROLES_CLAIM", "roles").strip(),
-            )
         if api_authenticator and oidc_authenticator:
             authenticator = CompositeAuthenticator(
                 api_authenticator, oidc_authenticator
@@ -111,13 +132,14 @@ def create_server_app(environ: Mapping[str, str] | None = None):
         except Exception:  # noqa: BLE001 - health response hides dependency details
             return False
 
-    logger = configure_json_logging()
     app = create_app(
         readiness_check=ready,
         expose_docs=expose_docs,
         logger=logger,
         service=service if authenticator is not None else None,
         authenticator=authenticator,
+        audit_hasher=audit_hasher,
+        instance_id=instance_id,
     )
     app.state.engine = engine
     app.state.application_service = service

@@ -89,11 +89,13 @@ def test_readiness_exception_does_not_leak_dependency_details() -> None:
     assert "runtimeerror" not in serialized
 
 
-def test_safe_client_request_id_is_preserved() -> None:
+def test_safe_client_request_id_is_echoed_separately() -> None:
+    # G1: the primary request ID is server-issued so clients cannot forge it.
     response = TestClient(create_app()).get(
         "/v1/health/live", headers={"X-Request-Id": "client-request_123"}
     )
-    assert response.headers["x-request-id"] == "client-request_123"
+    assert response.headers["x-request-id"].startswith("req_")
+    assert response.headers["x-client-request-id"] == "client-request_123"
 
 
 def test_unsafe_client_request_id_is_replaced() -> None:

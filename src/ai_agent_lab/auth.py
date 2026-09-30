@@ -4,24 +4,68 @@ from __future__ import annotations
 
 import hashlib
 import hmac
-import secrets
 import re
+import secrets
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from enum import StrEnum
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
 import jwt
+from cryptography.exceptions import UnsupportedAlgorithm
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import ec, ed448, ed25519, rsa
 from jwt import InvalidTokenError
 from sqlalchemy.orm import Session, sessionmaker
 
 from ai_agent_lab.domain import TenantContext
 from ai_agent_lab.storage.auth_repository import APIKeyRepository, StoredAPIKey
-
+from ai_agent_lab.storage.repositories import TenantRepository
 
 MAX_BEARER_TOKEN_LENGTH = 8192
+MAX_OIDC_TOKEN_LIFETIME_SECONDS = 600
 _KEY_ID_RE = re.compile(r"^[0-9a-f]{32}$")
+_OIDCPublicKey = (
+    rsa.RSAPublicKey | ec.EllipticCurvePublicKey
+    | ed25519.Ed25519PublicKey | ed448.Ed448PublicKey
+)
+
+
+def _oidc_public_key(pem: str | bytes, algorithms: Sequence[str]) -> _OIDCPublicKey:
+    """Parse only a public PEM and match every configured algorithm at startup."""
+    try:
+        key = serialization.load_pem_public_key(pem.encode("utf-8") if isinstance(pem, str) else pem)
+    except (TypeError, ValueError, UnsupportedAlgorithm):
+        raise ValueError("invalid OIDC public key configuration") from None
+    if isinstance(key, rsa.RSAPublicKey):
+        compatible = key.key_size >= 2048 and all(
+            algorithm in {"RS256", "RS384", "RS512"} for algorithm in algorithms
+        )
+    elif isinstance(key, ec.EllipticCurvePublicKey):
+        curves = {"ES256": "secp256r1", "ES384": "secp384r1", "ES512": "secp521r1"}
+        compatible = all(curves.get(algorithm) == key.curve.name for algorithm in algorithms)
+    elif isinstance(key, (ed25519.Ed25519PublicKey, ed448.Ed448PublicKey)):
+        compatible = all(algorithm == "EdDSA" for algorithm in algorithms)
+    else:
+        compatible = False
+    if not compatible:
+        raise ValueError("OIDC public key does not match configured algorithms")
+    return cast(_OIDCPublicKey, key)
+
+
+def _validate_oidc_times(claims: Mapping[str, Any]) -> None:
+    """Validate original JSON types and signed lifetime, without clock leeway."""
+    for field in ("iat", "exp", "nbf"):
+        if field == "nbf" and field not in claims:
+            continue
+        value = claims[field]
+        if type(value) is not int or value < 0:
+            raise ValueError("invalid OIDC time claims")
+    if not 0 < claims["exp"] - claims["iat"] <= MAX_OIDC_TOKEN_LIFETIME_SECONDS:
+        raise ValueError("invalid OIDC token lifetime")
+    if "nbf" in claims and claims["nbf"] >= claims["exp"]:
+        raise ValueError("invalid OIDC time claims")
 
 
 class Role(StrEnum):
@@ -151,6 +195,9 @@ class APIKeyManager:
             expires_at=issued_at + ttl,
         )
         with self._sessions.begin() as session:
+            tenant = TenantRepository(session).get(tenant_id)
+            if tenant is None or tenant.status != "active":
+                raise ValueError("tenant is unavailable")
             APIKeyRepository(session).add(record)
         return IssuedAPIKey(
             key_id=key_id,
@@ -186,7 +233,7 @@ class APIKeyAuthenticator:
             raise AuthenticationError("invalid credentials")
         key_id, secret = parts[1], parts[2]
         with self._sessions() as session:
-            record = APIKeyRepository(session).get(key_id)
+            record = APIKeyRepository(session).get_for_authentication(key_id)
         now = self._now()
         if record is None or record.revoked_at is not None or now >= record.expires_at:
             raise AuthenticationError("invalid credentials")
@@ -196,7 +243,7 @@ class APIKeyAuthenticator:
         return Principal(
             subject=f"api_key:{record.key_id}",
             tenant_id=record.tenant_id,
-            roles=record.roles,
+            roles=cast(frozenset[Role], record.roles),
             auth_method="api_key",
         )
 
@@ -227,7 +274,7 @@ class OIDCAuthenticator:
             raise ValueError("OIDC leeway must be between 0 and 300 seconds")
         self._issuer = issuer
         self._audience = audience
-        self._key = verification_key
+        self._key = _oidc_public_key(verification_key, selected)
         self._algorithms = selected
         self._tenant_claim = tenant_claim
         self._roles_claim = roles_claim
@@ -247,6 +294,7 @@ class OIDCAuthenticator:
                 leeway=self._leeway,
                 options={"require": ["sub", "iss", "aud", "iat", "exp"]},
             )
+            _validate_oidc_times(claims)
             subject = claims["sub"]
             tenant_id = claims[self._tenant_claim]
             role_values = claims[self._roles_claim]
@@ -258,7 +306,7 @@ class OIDCAuthenticator:
                 raise TypeError("invalid roles claim")
             roles = frozenset(Role(role) for role in role_values)
             return Principal(subject, tenant_id, roles, "oidc")
-        except (InvalidTokenError, KeyError, TypeError, ValueError) as exc:
+        except (InvalidTokenError, KeyError, TypeError, ValueError, OverflowError) as exc:
             raise AuthenticationError("invalid credentials") from exc
 
 

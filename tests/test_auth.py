@@ -374,6 +374,7 @@ def test_server_api_key_mode_authenticates_end_to_end(tmp_path: Path) -> None:
             "LAB_TENANT_NAME": "Tenant A",
             "LAB_AUTH_MODE": "api_key",
             "LAB_API_KEY_PEPPER": PEPPER,
+            "LAB_AUDIT_HASH_KEY": "synthetic-audit-hash-key-for-tests-only-32b",
         }
     )
     issued = app.state.api_key_manager.issue(

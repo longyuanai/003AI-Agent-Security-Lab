@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
 import logging
 import threading
@@ -22,6 +23,22 @@ _LOG_FIELDS = (
     "result",
     "run_id",
     "tenant_id_hash",
+    "client_request_id",
+    "instance_id",
+    "auth_method",
+    "subject_hash",
+    "decision",
+    "permission",
+    "project_id",
+    "stage",
+    "worker_owner",
+    "fencing_token",
+    "attempt",
+    "submitted_by_hash",
+    "artifact_id",
+    "artifact_format",
+    "artifact_sha256",
+    "artifact_size_bytes",
 )
 
 
@@ -61,6 +78,37 @@ def tenant_hash(tenant_id: str, *, salt: str) -> str:
     if not tenant_id or not salt:
         raise ValueError("tenant_id and salt are required")
     return hashlib.sha256(f"{salt}:{tenant_id}".encode()).hexdigest()[:16]
+
+
+class AuditIdentityHasher:
+    """Keyed, non-reversible identifiers that correlate audit events.
+
+    Log readers without the key cannot recover or dictionary-test subjects or
+    tenants; an auditor holding the key can recompute a hash to confirm one.
+    """
+
+    MIN_KEY_BYTES = 32
+
+    def __init__(self, key: str) -> None:
+        encoded = key.encode("utf-8")
+        if len(encoded) < self.MIN_KEY_BYTES:
+            raise ValueError("audit hash key must contain at least 32 bytes")
+        self._key = encoded
+
+    def __repr__(self) -> str:
+        return "AuditIdentityHasher(<redacted>)"
+
+    def subject(self, subject: str) -> str:
+        return self._digest("subject", subject)
+
+    def tenant(self, tenant_id: str) -> str:
+        return self._digest("tenant", tenant_id)
+
+    def _digest(self, domain: str, value: str) -> str:
+        if not value:
+            raise ValueError("audit identity value is required")
+        message = f"{domain}\x00{value}".encode()
+        return hmac.new(self._key, message, hashlib.sha256).hexdigest()[:32]
 
 
 @dataclass(frozen=True)
@@ -105,6 +153,7 @@ class MetricsRegistry:
 
 
 __all__ = [
+    "AuditIdentityHasher",
     "MetricsRegistry",
     "MetricsSnapshot",
     "SafeJSONFormatter",

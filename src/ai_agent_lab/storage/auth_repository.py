@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
-from ai_agent_lab.storage.models import APIKeyRow
+from ai_agent_lab.storage.models import APIKeyRow, TenantRow
 
 
 @dataclass(frozen=True)
@@ -47,6 +47,14 @@ class APIKeyRepository:
 
     def get(self, key_id: str) -> StoredAPIKey | None:
         row = self._session.scalar(select(APIKeyRow).where(APIKeyRow.id == key_id))
+        return _from_row(row) if row else None
+
+    def get_for_authentication(self, key_id: str) -> StoredAPIKey | None:
+        row = self._session.scalar(
+            select(APIKeyRow)
+            .join(TenantRow, TenantRow.id == APIKeyRow.tenant_id)
+            .where(APIKeyRow.id == key_id, TenantRow.status == "active")
+        )
         return _from_row(row) if row else None
 
     def revoke(self, key_id: str, *, now: datetime) -> bool:

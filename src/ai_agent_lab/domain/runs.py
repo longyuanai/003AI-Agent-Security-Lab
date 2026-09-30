@@ -55,6 +55,8 @@ class EvaluationRun:
     created_at: datetime = field(default_factory=utc_now)
     updated_at: datetime = field(default_factory=utc_now)
     version: int = 1
+    # Authenticated submitter; None only for runs persisted before migration 0005.
+    created_by: str | None = None
 
     def __post_init__(self) -> None:
         for name, value in (
@@ -66,6 +68,10 @@ class EvaluationRun:
         ):
             if not value or len(value) > 128:
                 raise ValueError(f"{name} must be non-empty and at most 128 chars")
+        if self.created_by is not None and (
+            not self.created_by.strip() or len(self.created_by) > 128
+        ):
+            raise ValueError("created_by must be 1-128 characters when present")
         if self.seed < 0 or self.attempt < 0 or self.fencing_token < 0:
             raise ValueError("seed, attempt, and fencing_token must be non-negative")
         if self.version < 1:

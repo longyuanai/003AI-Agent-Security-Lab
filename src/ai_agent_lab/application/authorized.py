@@ -48,6 +48,7 @@ class AuthorizedLabApplicationService:
             suite_version=suite_version,
             seed=seed,
             idempotency_key=idempotency_key,
+            created_by=principal.subject,
         )
 
     def get_run(self, principal: Principal, run_id: str) -> EvaluationRun | None:

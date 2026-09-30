@@ -112,6 +112,7 @@ class EvaluationRunRow(Base):
     suite_version: Mapped[str] = mapped_column(String(128), nullable=False)
     seed: Mapped[int] = mapped_column(Integer, nullable=False)
     idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    created_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
     status: Mapped[str] = mapped_column(String(32), nullable=False)
     attempt: Mapped[int] = mapped_column(Integer, nullable=False)
     fencing_token: Mapped[int] = mapped_column(Integer, nullable=False)

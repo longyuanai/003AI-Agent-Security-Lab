@@ -17,6 +17,10 @@ def new_id(prefix: str) -> str:
     return f"{prefix}_{uuid.uuid4().hex}"
 
 
+class TenantAccessError(PermissionError):
+    """The trusted tenant context is absent or administratively suspended."""
+
+
 @dataclass(frozen=True)
 class TenantContext:
     """Trusted tenant scope constructed by an authentication boundary."""
@@ -90,4 +94,11 @@ def _validate_version_and_time(
         raise ValueError("updated_at cannot precede created_at")
 
 
-__all__ = ["Project", "Tenant", "TenantContext", "new_id", "utc_now"]
+__all__ = [
+    "Project",
+    "Tenant",
+    "TenantAccessError",
+    "TenantContext",
+    "new_id",
+    "utc_now",
+]

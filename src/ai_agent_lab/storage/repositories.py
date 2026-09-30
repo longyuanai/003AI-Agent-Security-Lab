@@ -34,6 +34,25 @@ class TenantRepository:
         row = self._session.get(TenantRow, tenant_id)
         return _tenant_from_row(row) if row else None
 
+    def set_status(
+        self, tenant_id: str, status: str, *, expected_version: int
+    ) -> bool:
+        if status not in {"active", "suspended"}:
+            raise ValueError("tenant status must be active or suspended")
+        result = self._session.execute(
+            update(TenantRow)
+            .where(
+                TenantRow.id == tenant_id,
+                TenantRow.version == expected_version,
+            )
+            .values(
+                status=status,
+                updated_at=datetime.now(timezone.utc),
+                version=TenantRow.version + 1,
+            )
+        )
+        return result.rowcount == 1
+
 
 class ProjectRepository:
     """A repository permanently bound to one trusted tenant context."""
