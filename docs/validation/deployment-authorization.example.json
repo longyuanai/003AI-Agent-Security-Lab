@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "environment_kind": "isolated-test",
+  "campaign": null,
+  "decisions": {
+    "test_environment_owner_and_authorization": null,
+    "operating_system_and_runtime_versions": null,
+    "api_instances_proxy_tls_and_clock_sync": null,
+    "oidc_provider_issuer_audience_token_type": null,
+    "oidc_algorithm_claim_mapping_and_test_accounts": null,
+    "oidc_public_key_distribution_rotation_rollback": null,
+    "role_change_and_token_revocation_sla": null,
+    "postgres_version_dedicated_database_roles_tls": null,
+    "migration_and_tenant_bootstrap_operator": null,
+    "worker_launcher_instances_and_lease_policy": null,
+    "artifact_shared_storage_and_acl": null,
+    "secret_injection_reference_policy_no_values": null,
+    "audit_correlation_retention_and_access": null,
+    "backup_restore_location_rpo_rto_and_owner": null,
+    "exact_resource_inventory_and_cleanup_owner": null,
+    "a2_execution_boundary_no_untrusted_workloads": null
+  }
+}
