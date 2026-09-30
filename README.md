@@ -1,3 +1,12 @@
+> 2026-09-23 重组：能力归属见 [CAPABILITIES.md](CAPABILITIES.md)，启动入口见父目录 README。以下保留原项目说明。
+
+## 当前开发文档（2026-09-23）
+
+当前技术规范见 [docs/tech-spec.md](docs/tech-spec.md)，任务见 [docs/TODO.md](docs/TODO.md)，跨项目交接见 [根模型指南](../docs/MODEL-HANDOFF.md)。下文保留原仓使用说明；旧目录编号、旧状态与旧商业计划以当前技术规范为准。包名和 API 来源保持兼容。
+
+2026-09-27 A0 本机权限基线已验收，见 [授权路径与验收报告](docs/a0-authorization-baseline-20260927.md)：相关测试 156 passed，新测试 Lint 与严格类型检查通过，原有权限代码保持。只验证本机合成数据，不代表生产多租户部署已验收。
+
+
 # AI-Agent-Security-Lab
 
 > Offline-first AI Agent security benchmark and authorized security range.
@@ -139,7 +148,7 @@ The default is deterministic, offline evaluation. It writes an audit-friendly
 Markdown report and normalized JSON evidence:
 
 ```powershell
-& 'C:\Users\15072\AppData\Local\Programs\Python\Python314\python.exe' `
+& '<python-3.14>\python.exe' `
   -m ai_agent_lab benchmark `
   --offline `
   --seed 2026 `
@@ -151,7 +160,7 @@ Markdown report and normalized JSON evidence:
 Preview the ten-task plan without executing or writing files:
 
 ```powershell
-& 'C:\Users\15072\AppData\Local\Programs\Python\Python314\python.exe' `
+& '<python-3.14>\python.exe' `
   -m ai_agent_lab benchmark --offline --seed 2026 --dry-run
 ```
 
@@ -191,7 +200,7 @@ Judge safely falls back to the offline stub and reports `judge_mode: stub`.
 ### Required Windows verification
 
 ```powershell
-& 'C:\Users\15072\AppData\Local\Programs\Python\Python314\python.exe' `
+& '<python-3.14>\python.exe' `
   -m pytest tests/ `
   --basetemp=C:/pytest-tmp/003-commercial `
   -o addopts= `
@@ -249,6 +258,21 @@ $env:LAB_OIDC_ISSUER = "https://idp.example.com/"
 $env:LAB_OIDC_AUDIENCE = "ai-agent-security-lab"
 $env:LAB_OIDC_PUBLIC_KEY_FILE = "C:\run\secrets\idp-public.pem"
 $env:LAB_OIDC_ALGORITHMS = "RS256"
+```
+
+Every authenticated mode (`api_key`, `oidc`, `api_key+oidc`) also requires an
+audit hash key of at least 32 bytes and refuses to start without it. Structured
+logs then attribute each request and worker stage with keyed, non-reversible
+`subject_hash`/`tenant_id_hash` values (plus `auth_method`, `decision`,
+`permission`, `instance_id`, run/project/artifact IDs); tokens, headers, bodies
+and raw subjects are never logged. Runs record their submitter in `created_by`
+(migration `0005_run_created_by`). `X-Request-Id` is always server-issued; a
+safe client value is echoed as `X-Client-Request-Id` and logged as
+`client_request_id` only:
+
+```powershell
+$env:LAB_AUDIT_HASH_KEY = "<secret-manager-reference-value>"
+$env:LAB_INSTANCE_ID = "api-1" # optional; defaults to pid-<process id>
 ```
 
 Roles are least privilege: `viewer` reads projects/runs/reports; `operator`

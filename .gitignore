@@ -8,3 +8,9 @@ venv/
 .env
 .pytest_cache/
 .pytest-tmp/
+
+# Independently versioned capability repositories; see CAPABILITIES.md
+/modules/
+
+# Local acceptance evidence (logs with machine-specific paths); not published
+/docs/evidence/

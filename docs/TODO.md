@@ -1,141 +1,85 @@
-# 003 AI-Agent-Security-Lab · 商用化实施清单
+# 001AI-Agent-Security-Lab 开发任务
 
-> 更新日期：2026-08-01
-> 当前分支：`codex/agent-lab-benchmark-v2`
-> 主规范：[commercial-spec.md](commercial-spec.md)
-> 冻结接口：shared-llm-core v0.1 §1–§6、既有 Finding schema、`scan --json` envelope
-> 状态说明：`done` 已验证并推送；`in_progress` 当前阶段；`planned` 尚未开始；`blocked` 存在外部阻断。
+建立日期：2026-09-23；A0 更新：2026-09-27；部署权限计划更新：2026-09-28。各任务状态以对应现场证据为准；历史已有功能见 tech-spec，不把旧 TODO 的完成状态机械搬来。
 
-## 1. 已完成基线
+每轮只做一个有验收边界的任务，建议 Code 首轮组合 C0 与 C1。任务完成后填写证据、日期和提交，不仅打勾。
 
-| ID | 完成项 | 状态 | 证据 |
-|----|--------|------|------|
-| SCEN-001 | 5 个内置脆弱 Agent | done | target/CLI/tests |
-| ATTACK-001 | 10 类攻击与 detector 覆盖 | done | attacks/detector/tests |
-| SAND-001 | 本地 subprocess PoC 沙箱 | done | sandbox/tests；非生产安全边界 |
-| METRIC-001 | 5 × 10 ASR Markdown/JSON | done | metrics/tests |
-| MULTI-003-A | 五角色 MultiAgent 编排 | done | multi_agent/orchestrator/tests |
-| SCEN-003-A | 5 个 v0.5 高级场景 | done | scenarios/tests |
-| REPORT-003-A | 跨场景 Finding 关联报告 | done | report/tests |
-| LAB-CLI-001 | IntegrationGateway CLI envelope | done | scan/cli envelope tests |
-| LAB-LIVE-001 | fake/OpenAI/Anthropic provider 切换 | done | env-gated tests |
-| PHASE2-ATLAS | ATLAS 安全模板与插件注册 | done | atlas/entry points/tests |
-| PHASE2-JUDGE | 显式密钥启用 LLM Judge | done | judge + mock tests |
-| PHASE2-REPORT | ATLAS Markdown/JSON 报告 | done | report/CLI tests |
-| BENCH-001 | AttackCase 与 DeliveryStrategy 分离 | done | `5de994a` |
-| BENCH-002 | 客观 Success Oracle 与安全状态效果 | done | `8890994` |
-| BENCH-003 | 五 Agent 合法/攻击任务套件 | done | `6004978` |
-| BENCH-004 | ASR/Utility/Detector/Judge 指标 | done | `12ae9dd` |
+[本项目技术规范](tech-spec.md) · [全局交接指南](../../docs/MODEL-HANDOFF.md)
 
-最近完整回归基线：373 tests passed（AUTH-001）。每个后续里程碑必须重新执行完整回归，不能沿用该数字声称通过。
+## A0 — 复核现有基线与权限改动
 
-## 2. M0 · 商用技术基线
+- 状态：已完成（2026-09-27，本机现有权限与跨租户基线；不代表生产多租户验收）。
+- 工作：读取现有 dirty diff 与 tenant 测试；确认 run/任务/制品的授权路径，记录当前通过与未验证项。
+- 验收：不丢弃现有修改；现场相关权限与跨租户负例通过；未验证生产条件明确。
+- 依赖与范围：无；只读基线优先。
+- 现场证据：[A0 授权路径与验收报告](a0-authorization-baseline-20260927.md)。根 HEAD `4235350`、Agent HEAD `74fbe58`，既有源码与 `tests/test_tenant_isolation.py` 保持原字节；未提交。原有七文件现场基线 100 passed；新增 56 个负例后联合运行 156 passed / 0 failed / 0 skipped，exit 0。覆盖六操作未认证/撤销/篡改、HTTP 与服务 RBAC、缺失/停用租户、伪造租户输入、worker 中途停用清理和跨租户 claim。未复现需修改产品的权限缺陷。
+- 检查：新测试 Ruff exit 0、git diff --check exit 0；mypy 最初缺失，已将固定 1.20.2 安装到独立 TEMP 目录，仅用作开发检查、不改生产依赖。配置 MYPYPATH 并修正新测试的一处内部导入引用后，strict mypy exit 0（新测试 1 文件）；再跑相关 pytest 156 passed，exit 0。首次断言/工具/类型失败及最终日志均保留。
+- 后续：部署权限计划与材料已于2026-09-28准备，见下一节；A0本机证据不覆盖真实IdP、PostgreSQL多实例或生产执行隔离。
 
-| ID | 任务 | 状态 | 验收 |
-|----|------|------|------|
-| COMM-DOC-001 | 商用架构、安全、隐私、API、SLO 和 DoD | done | 文档一致、链接检查通过、246 tests passed |
-| COMM-THREAT-001 | STRIDE/LINDDUN 威胁模型 | done | 6 个信任边界、24 个 STRIDE/LINDDUN 风险与发布测试清单 |
-| COMM-ADR-001 | ADR 模板和首批架构决策 | done | 6 个 accepted ADR；链接检查与 246-test M0 回归通过 |
+## A0 后续 — 部署权限验证计划与材料
 
-## 3. M1 · Benchmark 产品内核
+- 计划与材料：已完成（2026-09-28）；**真实部署验收：未执行、未通过**。交付 [部署权限验证计划](deployment-authorization-validation-plan.md)，19项矩阵包含前置/操作/预期/证据/清理，并独立列出A2边界。
+- 本轮改动：新增离线材料脚本、JSON/env参考模板、合成账号与资源别名、not_run证据模板及12个本地测试；不修改产品源码、认证架构、冻结接口或生产依赖。未部署、未创建外部资源、未连接PG/真实IdP，不推进A1/A2。
+- 本轮验证：新增文件pytest最终12 passed / 0 failed / 0 skipped，exit0；strict mypy两文件、Ruff和链接只读检查exit0。prepare/check/cleanup-plan分别exit0/4/0；4明确表示真实部署未验证，cleanup只预览且删除0。详细命令及所有初次失败见计划§9与 `docs/evidence/deployment-plan-20260928/`，不引用A0历史通过数作为本轮结果。
+- 复核发现：静态公钥仅启动加载（DEP-AUTH-01）、旧角色token不即时失效（DEP-AUTH-02）、拒绝日志缺actor/tenant关联（DEP-AUTH-03）、常驻worker入口尚未提供（DEP-MULTI-01）。前两项先定SLA；完整身份审计缺口另列最小修复，未在本轮修改产品。
+- 仍缺：真实测试IdP及映射/轮换决策、专用PG与恢复目标、API/worker多实例拓扑和共享制品ACL、可信日志关联/保留策略、运行与清理负责人。缺前置时真实用例记not_run/blocked，不以mock结果替代。
+- 下一项最小任务：先评审16项非秘密决策，确定角色失效SLA、公钥切换窗口和审计归因要求；然后独立处理DEP-AUTH-03。真实环境执行需另次明确授权与准入检查，不能把材料完成标为部署通过。
+- 决策评审材料：已完成（2026-09-29）。见 [部署权限环境决策评审](deployment-authorization-decisions.md)：16项决策表、推荐组合（全部为建议，**未经负责人批准**）、三个关键决策、19项验收映射（W 6、W部分 3、F 9、B 1）和缺口 G1～G8；本轮未改源码/脚本，未运行测试。**19项真实部署验收仍未执行。** 待负责人回答文中 §9 的3个问题；之后下一项为 G1+G4（DEP-AUTH-03 审计归因）。
+- 负责人决定（2026-09-29）：§9 三问均选 A（失效上限：TTL 10 分钟+30 秒，不做即时撤销；公钥：15 分钟维护窗口、全部实例重启；审计：HMAC 主体/租户哈希 + 服务端 request ID + run 明文提交者）。其余决策仍为建议。
 
-| ID | 任务 | 状态 | 验收 |
-|----|------|------|------|
-| BENCH-005 | 隐私安全 RunRecord + JSON evidence | done | 固定 seed/版本/hash；9 tests；255-test 全量回归通过 |
-| BENCH-006 | Benchmark Markdown 报告 | done | 原子写入、隐私声明、objective evidence、6 tests；261 passed |
-| BENCH-007 | `benchmark` CLI | done | 8 tests；offline/live gating、dry-run、报告/evidence、scan envelope；269 passed |
-| BENCH-008 | 文档、全量回归与可复现 smoke | done | compileall、269 passed、同 seed fingerprint 一致、报告产物验证 |
+- 2026-09-30再次评审：已按当前源码更新 [决策文档§11～§18](deployment-authorization-decisions.md#11-2026-09-30-当前代码复核与16项推荐)。保留9月29日既有审批/实现记录；本轮新增或调整推荐全部**待确认**，**19项真实部署验收仍未执行**。16个原模板键、19项验收的环境/代码阻塞和顺序均有逐项对应。当前G1/G4已实现，不能再列为尚缺；源码迁移head是0005，不推定实际数据库已应用。
+- 本轮推荐重点：TTL10分钟且产品强制600秒一致上限（旧15分钟产品上限不满足10.5分钟目标）；租户在途授权停止30秒是R3/G5待实现目标，300秒租约不保证停止时限；单钥维护窗不支持在线并存/JWKS；审计现有HMAC归因还需身份域、worker标签、ACL/保留与完整性验证。新增R1～R5及既有G5～G8只列任务，不改源码。
+- 本轮范围与验证：只更新决策文档/TODO并保存备份、摘要和文档检查记录；不新增脚本、不安装依赖、不运行权限测试、不部署、不提交。文档引用/16键/19验收及git diff --check现场结果见 `docs/evidence/deployment-decisions-20260930/checks.json`。
+- 文档检查结果（2026-09-30）：16键/19项一致，全部部署状态未执行，24个本地引用和新章节锚点有效；PowerShell文档检查、git diff --check、只读repair_links均exit0。首次证据文件自引用检查失败已保留并复查；不是产品失败。除决策文档与本TODO外既有文件摘要无变化。
+- 当前进度更新：负责人本轮仅明确确认审查报告§3/§4的R1/R4，修复验收见下方独立条目；其他新增推荐仍待确认，R3/G5另案。环境仍需逐项提供和授权，任何推荐不自动转成部署通过。
 
-M1 状态：**done（2026-08-01）**。冻结接口不变；269 tests passed；输出无原始 prompt、对话历史和 secret；BENCH-005/006/007 均已独立 commit/push。
+## G1+G4 — 审计主体归因（DEP-AUTH-03）与 run 提交者
 
-## 4. M2 · 可部署服务
+当前R1/R4进度（2026-09-30）见下一独立条目；本节G1/G4与其测试数字仍为9月29日历史，不计作R1/R4本轮结果。
 
-| ID | 任务 | 状态 | 验收 |
-|----|------|------|------|
-| API-001 | `/v1` schema、统一错误和 request ID | done | live/ready、请求边界、统一错误、13 tests；282 passed |
-| STORE-001 | Repository ports + SQLite/PostgreSQL adapters | done | tenant-bound Repository、Alembic drift check、14 tests；296 passed |
-| RUN-001 | EvaluationRun 状态机、lease、retry、cancel | done | 幂等、过期重领、fencing、取消、14 tests；310 passed |
-| ART-001 | 文件/S3-compatible artifact store | done | 原子文件 adapter/port、sha256、TTL、symlink/traversal、11 tests；321 passed |
-| OBS-001 | JSON 日志、metrics、live/ready health | done | allowlist JSON 日志、route-template metrics、9 tests；330 passed |
-| E2E-001 | API → worker → evidence → report | done | 单租户 API、持久化 worker、重启、真实 Uvicorn、12 tests；342 passed |
-| M2-REL-001 | 单机部署、迁移、SQLite 备份恢复与说明 | done | Uvicorn/Alembic、非覆盖恢复、SHA-256、6 tests；348 passed |
+- 状态：本机实现与 L1 测试完成（2026-09-29）；**未部署、未提交；AUDIT-01/02 的 D 级验收仍未执行。** 行为与兼容变化见 [决策评审 §8.1](deployment-authorization-decisions.md)。
+- 修改：`api/app.py`、`api/server.py`、`observability.py`、`application/service.py`、`application/authorized.py`、`domain/runs.py`、`storage/models.py`、`storage/run_repository.py`；新增 `migrations/versions/0005_run_created_by.py`、`tests/test_audit_attribution.py`（12 例）。README 和 env 参考模板新增 `LAB_AUDIT_HASH_KEY`/`LAB_INSTANCE_ID`。修改前的文件（含已有未提交改动）备份在 `docs/evidence/g1-g4-20260929/before/`，并附 SHA-256。
+- 现有测试最小调整：`test_api_v1.py` 中原“客户端 request ID 原样保留”的用例改为“服务端 ID + `X-Client-Request-Id` 回显”（负责人 Q3=A 批准的行为变化）；`test_auth.py` 的 api_key 服务端用例与 `test_deployment_authorization_materials.py` 的公钥轮换用例补充了合成审计密钥。断言没有放宽。
+- 基线（改动前）：10 个相关文件 176 passed / 1 failed。失败的是 `test_a0_authorization.py::test_denied_request_does_not_log_bearer_secret`，与执行顺序有关：`migrations/env.py` 的 `fileConfig` 会禁用已经创建的 logger，而该文件单独运行时 56 passed。按排除法定位到与 `test_storage.py` 的 Alembic 用例同跑时触发。这是既有测试隔离问题，不是权限缺陷，已单列后续任务，本轮不修改。
+- 结果：新测试首次运行 2 failed（测试自身问题：幂等键短于 8 位；API key 在租户停用后按 A0 行为返回 401），修正测试后 12 passed。同样 10 个文件加新文件共 188 passed / 1 failed，失败仍是上面那个顺序问题，该用例与 tenant 测试单独运行 67 passed。全量 `tests/`（PYTHONPATH 加入 000shared-integration）最终 **465 passed / 0 failed**，exit 0。未加该路径时 `test_cli_envelope` 子进程找不到模块，属于环境问题，补上路径后 8 passed。
+- 静态检查：strict mypy 1.20.2（安装在独立 TEMP 目录，仅供开发检查）对改动的 10 个文件报 18 个错误，与原版本在临时镜像中得到的 18 个完全相同，均为既有问题；新文件及无既有问题的文件 exit 0。Ruff：新文件和 service/authorized/runs exit 0；其余被改文件的计数与原版本相同（修掉了本轮引入的 1 处 UP012）。`git diff --check` 结果见最终报告。
+- 下一项：负责人复核后可提交本轮差异（只提交本轮文件/差异块）；部署前 AUDIT-02 须在真实环境用两个测试账号复测。后续修复顺序 G7 → G5 → G6 → G8，G3 需要另行授权。
 
-M2 状态：**done（2026-08-01）**。服务可单机部署；任务不因进程重启丢失；SQLite 备份恢复已实际演练。PostgreSQL 生产恢复演练仍是 Commercial Preview 门禁，不属于本地 M2 自动化替代项。
+## R1/R4 — 令牌寿命与静态公钥启动校验
 
-## 5. M3 · 企业身份与安全执行器
+- 状态：负责人已明确确认审查报告§3/§4；**R1/R4最小源码修复及本机L1验收完成（2026-09-30），未部署、未提交**。见 [本轮修复验收](oidc-r1-r4-acceptance-20260930.md)；[实施前审查](oidc-r1-r4-review-20260930.md)保留历史观察，不作为修复通过证据。
+- 行为：OIDC及组合OIDC分支要求非负JSON整数iat/exp，nbf可选但同类型且nbf<exp；0<exp-iat≤600秒，默认30秒容差不扩大寿命。单public PEM启动解析，每个算法均匹配RSA≥2048、对应EC曲线或Ed25519/Ed448；配置错误在数据库/制品创建前失败，无弱认证回落。
+- 兼容：拒绝过去宽松接受的超长/零负寿命和字符串、小数、布尔时间；非OIDC忽略未使用公钥，API-key原有效期与撤销策略保持不变；外部IdP签发TTL仍需真实环境设置。
+- 本轮现场验证：95项新安全行为断言与155项现有回归联合250 passed / 0 failed / 0 skipped，exit0；严格mypy涉及3文件、Ruff、引用/保护摘要与git diff --check均通过。实际命令、独立basetemp、初次静态失败和最终日志见验收报告及 `docs/evidence/r1-r4-fix-20260930/`，不引用历史通过数。
+- 范围：仅auth.py/server.py最小改动、新增正式测试、技术规范/TODO和本轮证据；已有权限、存储及tenant测试原字节保护。生产依赖、公共契约和其他产品不变。**19项真实部署验收全部未执行**。
+- 下一项：独立复核R3/G5的30秒租户授权停止与运行中任务停止边界，先明确触发、检查点、取消和制品语义；本轮未实现。公钥切换仍维护停流、全部实例重启，不增加双钥/JWKS。真实部署须另获授权并补足IdP、专用PG和多实例设施。
 
-| ID | 任务 | 状态 | 验收 |
-|----|------|------|------|
-| AUTH-001 | API key hash、OIDC principal、RBAC | done | HMAC+salt、RS256 claims、双层 RBAC、密钥 CLI；25 tests；373 passed |
-| TENANT-001 | tenant context 与 repository 强制隔离 | planned | 跨租户/IDOR 测试为发布阻断项 |
-| QUOTA-001 | tenant/project 并发、速率和成本配额 | planned | 超额明确拒绝且可审计 |
-| EXEC-001 | 容器 Sandbox Broker/Runner | planned | non-root、read-only、cap-drop、资源限制 |
-| NET-001 | 默认 deny-egress + SSRF 防护 | planned | DNS rebinding、private/link-local、redirect 测试 |
-| SECRET-001 | secret reference 与全链路脱敏 | planned | log/error/evidence 泄漏扫描 |
+## A1 — SOC 轨迹桥接
 
-M3 退出条件：完成跨租户安全测试、进程树清理测试和默认断网验证；subprocess 模式不能用于生产多租户。
+- 状态：待执行。
+- 工作：在 Agent 添加最小轨迹适配、受支持规则和报告附加；必要时改 SOC 模块公共规则入口。
+- 验收：三个受支持场景正反例、证据关联、顺序/去重、缺字段、SOC 失败不丢主结果；oracle 与 detector 分离。
+- 依赖与范围：A0；仅 Agent + SOC 两仓。
+- 完成证据：待填写实际命令、结果、未验证项与提交。
 
-## 6. M4 · 真实生态与 CI
+## A2 — 生产执行隔离验证
 
-| ID | 任务 | 状态 | 验收 |
-|----|------|------|------|
-| SDK-001 | Target/Attack/Detector/Judge adapter SDK | planned | 版本协商、能力声明、认证测试套件 |
-| ADAPT-001 | 真实 Agent adapter 1 | planned | 授权 fixture 环境 E2E |
-| ADAPT-002 | 真实 Agent/MCP adapter 2 | planned | 授权 fixture 环境 E2E |
-| CI-001 | CI benchmark 与基线差异门禁 | planned | 可配置阈值、SARIF/JUnit 或稳定 JSON 输出 |
-| REGRESS-001 | SuiteVersion 与基准比较 | planned | immutable manifest、回归趋势与兼容测试 |
+- 状态：待执行。
+- 工作：先 ADR 明确目标运行环境，再实施资源/网络/文件隔离、取消与进程回收。
+- 验收：真实运行环境的越界/网络/资源/子进程负例及审计；未部署部分明确标注；不开放不可信执行服务。
+- 依赖与范围：A0；独立于 A1，可排期但不得凭单测宣布完成。
+- 完成证据：待填写实际命令、结果、未验证项与提交。
 
-M4 退出条件：至少两个真实 adapter 通过同一 certification suite；完成一个内部或授权客户试点。
+## A3 — 可复现评估交付
 
-## 7. M5 · Commercial Preview
+- 状态：待执行。
+- 工作：版本化基准、任务效用/误拒绝/检测指标、试用文档与恢复说明。
+- 验收：固定样本复跑、人工抽查、报告复现；若托管则 A2 和生产权限验收先通过。
+- 依赖与范围：A1；托管形态另需 A2。
+- 完成证据：待填写实际命令、结果、未验证项与提交。
 
-| ID | 任务 | 状态 | 验收 |
-|----|------|------|------|
-| UI-001 | 最小 Web 控制台 | planned | 项目、运行、Finding、报告，不绕过 API 权限 |
-| AUDIT-001 | append-only audit 与导出 | planned | 登录、授权、配置、运行、下载全覆盖 |
-| OPS-001 | Dashboard、告警、runbook | planned | SLO 可见，关键告警演练 |
-| BACKUP-001 | 备份恢复与删除验证 | planned | RPO/RTO 演练记录 |
-| DIST-001 | 安装、升级、回滚、配置文档 | planned | 全新环境和上一版本升级 smoke |
-| PILOT-001 | 单租户试点 | planned | 用户验收、缺陷闭环、安全评审 |
+## 通用停止条件
 
-## 8. M6 · GA 门禁
+范围超出任务、需要新技术栈/冻结接口破坏性改动、外部部署环境缺失时，先完成可独立验证部分并报告具体条件。不得删除测试、降低权限或伪造验证来满足验收。
 
-| ID | 任务 | 状态 | 验收 |
-|----|------|------|------|
-| SUPPLY-001 | 锁定依赖、SBOM、provenance、签名发布 | planned | CI 可验证制品来源与 checksum |
-| SEC-REVIEW-001 | 独立渗透测试与修复 | planned | Critical/High 清零或正式风险接受 |
-| PERF-001 | 负载、容量和降级测试 | planned | 达到商用 SLO，超载不丢任务 |
-| COMPLY-001 | 隐私、保留、删除、ToS 与授权流程 | planned | 法务/安全审核记录 |
-| SUPPORT-001 | 兼容政策、漏洞响应和支持 SLA | planned | 对外发布文档齐全 |
-
-GA 禁止条件：跨租户问题、secret 泄漏、执行器默认可联网、未修复 Critical/High、未验证恢复、冻结契约破坏。
-
-## 9. 每项任务执行规范
-
-1. 开工前读取相关规范、接口和现有测试。
-2. 修改范围最小；新增生产依赖必须先写 ADR。
-3. 每个 issue 至少 3 个有意义的 test function；安全关键 issue 应覆盖拒绝路径。
-4. Windows 验证命令：
-
-```powershell
-& 'C:\Users\15072\AppData\Local\Programs\Python\Python314\python.exe' `
-  -m pytest tests/ `
-  --basetemp=C:/pytest-tmp/003-commercial `
-  -o addopts= `
-  -q --tb=short
-```
-
-5. 不在测试中访问真实 LLM 或未授权外网。
-6. 不提交 API Key、Token、客户数据或真实恶意 payload。
-7. 每个任务独立 commit，并推送 `codex/agent-lab-benchmark-v2`。
-8. 回报：Files / Tests / Compliance / Known Issues / Rollback。
-
-## 10. 当前执行顺序
-
-1. M0 商用文档：done。
-2. M1 Benchmark 产品内核：done。
-3. M2 可部署服务：done。
-4. AUTH-001 企业身份与 RBAC：done。
-5. 下一任务 `TENANT-001`，随后执行 `QUOTA-001`、`EXEC-001`、`NET-001`、`SECRET-001`。
-
-不得为了追求“商用”一次性引入 Kubernetes、Redis、消息队列和多个微服务。只有测得模块化单体无法满足容量或隔离目标时，才通过 ADR 拆分。
+原技术规范和旧任务清单保存在 docs/archive/2026-09-23-pre-consolidation；历史计划用于追溯，不自动执行。
