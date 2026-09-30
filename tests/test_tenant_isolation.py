@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import dataclasses
 from pathlib import Path
 
 import httpx
@@ -21,7 +22,6 @@ from ai_agent_lab.auth import (
 from ai_agent_lab.domain import Tenant, TenantAccessError, TenantContext
 from ai_agent_lab.storage import FileArtifactStore, create_schema, make_engine, session_factory
 from ai_agent_lab.storage.repositories import TenantRepository
-
 
 PEPPER = "tenant-isolation-fixture-pepper-at-least-32-bytes"
 
@@ -91,7 +91,7 @@ def _project_and_run(client: Client, *, idempotency_key: str = "tenant-fixture-k
 
 def test_tenant_context_is_frozen_and_cannot_be_client_data() -> None:
     context = TenantContext("tenant_a")
-    with pytest.raises(Exception):
+    with pytest.raises(dataclasses.FrozenInstanceError):
         context.tenant_id = "tenant_b"
     with pytest.raises(ValueError, match="tenant_id"):
         TenantContext(" ")

@@ -6,7 +6,7 @@ import asyncio
 import io
 import json
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest.mock import Mock
 
@@ -102,7 +102,7 @@ def keypair() -> tuple[bytes, bytes]:
 
 
 def token(private: bytes, role: str = "operator") -> str:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     return jwt.encode({
         "sub": "authval-user", "iss": "https://idp.example.test", "aud": "authval-test",
         "iat": now, "exp": now + timedelta(minutes=5),

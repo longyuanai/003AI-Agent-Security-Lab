@@ -47,7 +47,7 @@ class TenantRepository:
             )
             .values(
                 status=status,
-                updated_at=datetime.now(timezone.utc),
+                updated_at=datetime.now(UTC),
                 version=TenantRow.version + 1,
             )
         )

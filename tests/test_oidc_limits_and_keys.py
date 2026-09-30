@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Callable
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest.mock import Mock
 
@@ -64,7 +64,7 @@ def test_strict_time_behavior(
     record_property: Record,
 ) -> None:
     clock = Mock(wraps=datetime)
-    clock.now.return_value = datetime.fromtimestamp(NOW, timezone.utc)
+    clock.now.return_value = datetime.fromtimestamp(NOW, UTC)
     private, public = keys
     claims: dict[str, object] = {
         "sub": "synthetic-user", "iss": "https://idp.example.test",
@@ -153,7 +153,7 @@ def test_modes_not_using_oidc_ignore_unused_public_key(
 
 
 def claims_now() -> dict[str, object]:
-    now = int(datetime.now(timezone.utc).timestamp())
+    now = int(datetime.now(UTC).timestamp())
     return {
         "sub": "synthetic-user", "iss": "https://idp.example.test", "aud": "synthetic-review",
         "tenant_id": "local", "roles": ["viewer"], "iat": now, "exp": now + 600,
@@ -186,7 +186,7 @@ def test_nbf_time_and_order_boundaries(
     claims.update(iat=NOW, exp=NOW + 600, nbf=nbf)
     token = jwt.encode(claims, keys[0], algorithm="RS256")
     clock = Mock(wraps=datetime)
-    clock.now.return_value = datetime.fromtimestamp(NOW, timezone.utc)
+    clock.now.return_value = datetime.fromtimestamp(NOW, UTC)
     monkeypatch.setattr(jwt.api_jwt, "datetime", clock)
     auth = OIDCAuthenticator(
         issuer="https://idp.example.test", audience="synthetic-review", verification_key=keys[1],
@@ -296,8 +296,8 @@ def test_sensitive_or_unreadable_key_configuration_is_sanitized(
         name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "synthetic-test")])
         cert = (x509.CertificateBuilder().subject_name(name).issuer_name(name)
                 .public_key(private.public_key()).serial_number(1)
-                .not_valid_before(datetime.now(timezone.utc))
-                .not_valid_after(datetime.now(timezone.utc) + timedelta(days=1)).sign(private, hashes.SHA256()))
+                .not_valid_before(datetime.now(UTC))
+                .not_valid_after(datetime.now(UTC) + timedelta(days=1)).sign(private, hashes.SHA256()))
         material = cert.public_bytes(serialization.Encoding.PEM)
     elif kind == "symmetric":
         material = b"SYNTHETIC_SYMMETRIC_SECRET"
@@ -338,7 +338,7 @@ def test_combined_mode_preserves_api_key_lifetime_and_rejects_long_jwt(
                                                created_by="synthetic-owner", ttl=timedelta(days=30))
         assert get(app, "/v1/projects", issued.token).status_code == 200
         claims = claims_now()
-        claims["exp"] = int(datetime.now(timezone.utc).timestamp()) + 7200
+        claims["exp"] = int(datetime.now(UTC).timestamp()) + 7200
         token = jwt.encode(claims, keys[0], algorithm="RS256")
         assert get(app, "/v1/projects", token).status_code == 401
         assert app.state.api_key_manager.revoke(issued.key_id)

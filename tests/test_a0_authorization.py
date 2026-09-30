@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Iterator
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from unittest.mock import Mock
@@ -264,7 +264,7 @@ def test_worker_suspension_discards_reports_and_keeps_other_tenant_untouched(
 
 
 def test_worker_claim_cannot_heartbeat_or_transition_through_other_tenant(stack: Stack) -> None:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     with stack.sessions.begin() as session:
         repo_a = EvaluationRunRepository(session, TenantContext("tenant_a"))
         claim = repo_a.claim_next(owner="same-worker-name", now=now)
