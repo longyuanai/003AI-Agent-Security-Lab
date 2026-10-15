@@ -1,41 +1,48 @@
-# 003AI-Agent-Security-Lab · 架构导览
+# 003AI-Agent-Security-Lab · ARCHITECTURE
 
-> 2026-10-12 根据本地目录、已有文档和构建清单建立的工程文档入口；本轮未运行项目业务验收或完整安全审计。
+核实日期：2026-10-15。依据本地README、构建清单和实际入口；本文件不把文档计划当成运行时验收。
 
-- Project ID：`003AI-Agent-Security-Lab`
-- GitHub：[longyuanai/003AI-Agent-Security-Lab](https://github.com/longyuanai/003AI-Agent-Security-Lab)
-- Obsidian：Vault `龙渊` 内的 `03_Projects/AI-Network-Security/003AI-Agent-Security-Lab - Git关联.md`（记录原理、实验、漏洞分析与复盘）。
+## 目标与范围
 
-## 已核实的工程入口
+在自有/授权场景组织安全实验、执行控制和证据；modules 下能力仓保留独立历史。
 
-```text
-003AI-Agent-Security-Lab/
-├── alembic.ini
-├── AUDIT/
-├── CAPABILITIES.md
-├── docs/
-├── LICENSE
-├── migrations/
-├── modules/
-├── PHASE-2.md
-├── prompts/
-├── pyproject.toml
-├── samples/
-├── scripts/
-├── src/
-├── tests/
+GitHub：[longyuanai/003AI-Agent-Security-Lab](https://github.com/longyuanai/003AI-Agent-Security-Lab)。知识笔记：Vault内 `03_Projects/AI-Network-Security/003AI-Agent-Security-Lab - Git关联.md`。
+
+## 组件与代码入口
+
+| 实际路径 | 责任边界 |
+| --- | --- |
+| [src](src) | 主要实现 |
+| [modules](modules) | 独立能力Git仓 |
+| [migrations](migrations) | 数据版本 |
+| [scripts](scripts) | 作者/运维工具 |
+| [tests](tests) | 测试 |
+| [docs](docs) | 工程规范与说明 |
+
+## 数据与控制流
+
+以下链路对应README/规范描述；实现覆盖以代码入口和适用验证为准。
+
+```mermaid
+flowchart LR
+    N0["授权与任务"]
+    N1["准入/执行控制"]
+    N2["受限工作进程"]
+    N3["证据存储"]
+    N4["报告"]
+    N0 --> N1
+    N1 --> N2
+    N2 --> N3
+    N3 --> N4
 ```
 
-## 构建与技术栈依据
+## 构建与依赖依据
 
-- [pyproject.toml](pyproject.toml)：[tool.poetry]；name = "ai-agent-lab"；[tool.poetry.dependencies]；python = "^3.11"；[tool.poetry.group.dev.dependencies]；[tool.poetry.scripts]；[build-system]；[tool.poetry.plugins."longyuanai.atlas_tactics"]。
+- [pyproject.toml](pyproject.toml)：`Python`。
 
-能力模块保留独立 Git 历史，提交/克隆须分别核对；目录编号与 API 来源编号不可混用，详见 CAPABILITIES。
+## 验证边界
 
-## 边界与待补充
-
-- 组件职责、数据流、数据模型与部署边界以现行技术规范为准。
-- [ ] 在真实代码反馈后补充仍缺少的数据流或设计取舍；当前不把拟议能力标为已实现。
+验证撤销、超时、取消、进程退出与恢复时的证据一致性；并发工作先固定快照后验收。
 
 ## 现行依据
 
